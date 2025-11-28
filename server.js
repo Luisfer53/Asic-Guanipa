@@ -45,17 +45,19 @@ app.use((req, res) => {
 
 const PORT = process.env.PORT || 3000;
 
-app.listen(PORT, () => {
-    console.log('\n' + '═'.repeat(50));
-    console.log(`🚀 Servidor corriendo en http://localhost:${PORT}`);
-    console.log('═'.repeat(50));
-    console.log('📝 Endpoints disponibles:');
-    console.log(`   POST   http://localhost:${PORT}/api/auth/register`);
-    console.log(`   POST   http://localhost:${PORT}/api/auth/login`);
-    console.log(`   POST   http://localhost:${PORT}/api/auth/forgot-password`);
-    console.log(`   POST   http://localhost:${PORT}/api/auth/reset-password`);
-    console.log(`   GET    http://localhost:${PORT}/api/auth/profile`);
-    console.log('═'.repeat(50) + '\n');
-});
+if (require.main === module) {
+    app.listen(PORT, () => {
+        console.log('\n' + '═'.repeat(50));
+        console.log(`🚀 Servidor corriendo en http://localhost:${PORT}`);
+        console.log('═'.repeat(50));
+        console.log('📝 Endpoints disponibles:');
+        console.log(`   POST   http://localhost:${PORT}/api/auth/register`);
+        console.log(`   POST   http://localhost:${PORT}/api/auth/login`);
+        console.log(`   POST   http://localhost:${PORT}/api/auth/forgot-password`);
+        console.log(`   POST   http://localhost:${PORT}/api/auth/reset-password`);
+        console.log(`   GET    http://localhost:${PORT}/api/auth/profile`);
+        console.log('═'.repeat(50) + '\n');
+    });
+}
 
 module.exports = app;
