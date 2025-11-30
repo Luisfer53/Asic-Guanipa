@@ -12,6 +12,7 @@ jobs:
 
     env:
       CI_DB_NAME: cdi_ci
+      DB_NAME: cdi_ci
       DB_HOST: localhost
       DB_USER: username_ci
       DB_PASSWORD: password_ci
