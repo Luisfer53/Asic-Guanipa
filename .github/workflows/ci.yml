@@ -41,7 +41,10 @@ jobs:
         run: npm install
 
       - name: Adding Path
-        run: export PATH="${PATH}:$(pwd)/bin"
+        run: |
+          npx sequelize db:create || exit 1 |
+          npx sequelize db:migrate || exit 1
+          npx sequelize db:seed:all || exit 1
 
       - name: Run Jest tests
-        run: npm test
+        run: npx jest --runInBand --coverage
