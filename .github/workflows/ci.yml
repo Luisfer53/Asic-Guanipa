@@ -12,7 +12,7 @@ jobs:
 
     env:
       CI_DB_NAME: cdi_ci
-      DB_HOST: postgres
+      DB_HOST: localhost
       DB_USER: username_ci
       DB_PASSWORD: password_ci
       DB_PORT: 5432
@@ -40,6 +40,18 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "22"
+
+      - name: Install PostgreSQL client
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client
+
+      - name: Wait for PostgreSQL
+        run: |
+          for i in {1..30}; do
+            pg_isready -h localhost -p 5432 -U username_ci && break
+            sleep 2
+          done
 
       - name: Install dependencies
         run: npm install
