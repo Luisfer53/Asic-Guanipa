@@ -22,11 +22,11 @@ jobs:
       postgres:
         image: postgres:17
         env:
-          POSTGRES_USER: ${DB_USER}
-          POSTGRES_PASSWORD: ${DB_PASSWORD}
-          POSTGRES_DB: ${CI_DB_NAME}
+          POSTGRES_USER: username_ci
+          POSTGRES_PASSWORD: password_ci
+          POSTGRES_DB: cdi_ci
         ports:
-          - ${DB_PORT}:5432
+          - 5432:5432
         options: >-
           --health-cmd pg_isready
           --health-interval 10s
