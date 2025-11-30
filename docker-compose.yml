@@ -1,6 +1,7 @@
 version: "3"
 services:
   api-server:
+    user: "${UID}:${GID}"
     env_file: .env
     build:
       context: ./
