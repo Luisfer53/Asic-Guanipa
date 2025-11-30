@@ -10,6 +10,24 @@ jobs:
   test:
     runs-on: ubuntu-latest
 
+    env:
+      CI_DB_NAME: cdi_ci
+      DB_HOST: postgres
+      DB_USER: username_ci
+      DB_PASSWORD: password_ci
+      DB_PORT: 5432
+      NODE_ENV: test
+
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: ${DB_USER}
+          POSTGRES_PASSWORD: ${DB_PASSWORD}
+          POSTGRES_DB: ${CI_DB_NAME}
+        ports:
+          - 5432:5432
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4

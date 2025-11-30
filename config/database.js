@@ -7,10 +7,10 @@ module.exports = {
     dialect: "postgres",
   },
   test: {
-    username: process.env.CI_DB_USER,
-    password: process.env.CI_DB_PASSWORD,
+    username: process.env.DB_USER,
+    password: process.env.DB_PASSWORD,
     database: process.env.CI_DB_NAME,
-    host: process.env.CI_DB_HOST,
+    host: process.env.DB_HOST,
     dialect: "postgres",
   },
   production: {
