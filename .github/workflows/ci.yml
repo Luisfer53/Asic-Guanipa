@@ -1,0 +1,65 @@
+name: Run Jest Tests
+
+on:
+  push:
+    - "**"
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    env:
+      CI_DB_NAME: cdi_ci
+      DB_NAME: cdi_ci
+      DB_HOST: localhost
+      DB_USER: username_ci
+      DB_PASSWORD: password_ci
+      DB_PORT: 5432
+      NODE_ENV: test
+
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: username_ci
+          POSTGRES_PASSWORD: password_ci
+          POSTGRES_DB: cdi_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install PostgreSQL client
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client
+
+      - name: Wait for PostgreSQL
+        run: |
+          for i in {1..30}; do
+            pg_isready -h localhost -p 5432 -U username_ci && break
+            sleep 2
+          done
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Adding Path
+        run: |
+          apt install postgres-client -y |
+          sleep 10 |
+          npx sequelize db:migrate || exit 1 |
+          npx sequelize db:seed:all || exit 1
+
+      - name: Run Jest tests
+        run: npx jest --runInBand --coverage

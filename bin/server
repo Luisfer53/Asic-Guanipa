@@ -1,0 +1,23 @@
+#!/bin/bash
+
+cd /app/
+
+if [ ! -d "./node_modules" ]; then
+  echo "Installing dependencies..."
+  if ! npm install; then
+    echo "npm install failed!" >&2
+    exit 2
+  fi
+else
+  echo "Dependencies already installed."
+fi
+
+sleep 10 && npx sequelize db:migrate && npx sequelize db:seed:all &
+
+if [ "$NODE_ENV" = "production" ]; then
+  echo "Starting server..."
+  npm start
+else
+  echo "Starting development server..."
+  npm run dev
+fi
