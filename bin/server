@@ -4,9 +4,20 @@ cd /app/
 
 if [ ! -d "./node_modules" ]; then
   echo "Installing dependencies..."
-  npm install
+  if ! npm install; then
+    echo "npm install failed!" >&2
+    exit 2
+  fi
 else
   echo "Dependencies already installed."
 fi
 
-npm start
+npx sequelize db:migrate && npx sequelize db:seed:all &
+
+if [ "$NODE_ENV" = "production" ]; then
+  echo "Starting server..."
+  npm start
+else
+  echo "Starting development server..."
+  npm run dev
+fi

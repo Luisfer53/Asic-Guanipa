@@ -1,0 +1,10 @@
+#!/bin/bash
+
+cd /app/
+
+npx sequelize db:drop --env test
+npx sequelize db:create --env test || exit 1
+npx sequelize db:migrate --env test || exit 1
+npx sequelize db:seed:all --env test || exit 1
+npx jest --runInBand --coverage
+npx sequelize db:drop --env test || exit 1
