@@ -41,6 +41,8 @@ jobs:
 
       - name: Adding Path
         run: |
+          apt install postgres-client -y |
+          sleep 10 |
           npx sequelize db:create || exit 1 |
           npx sequelize db:migrate || exit 1
           npx sequelize db:seed:all || exit 1

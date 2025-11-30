@@ -12,7 +12,7 @@ else
   echo "Dependencies already installed."
 fi
 
-npx sequelize db:migrate && npx sequelize db:seed:all &
+sleep 10 && npx sequelize db:migrate && npx sequelize db:seed:all &
 
 if [ "$NODE_ENV" = "production" ]; then
   echo "Starting server..."

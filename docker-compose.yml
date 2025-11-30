@@ -1,12 +1,13 @@
 version: "3"
 services:
   api-server:
+    env_file: .env
     build:
       context: ./
       dockerfile: Dockerfile
     image: asic-guanipa:latest
     ports:
-      - "4500:${PORT}"
+      - "${PORT}:${PORT}"
     volumes:
       - "./:/app"
     links:
@@ -20,4 +21,4 @@ services:
     environment:
       POSTGRES_USER: ${DB_USER}
       POSTGRES_PASSWORD: ${DB_PASSWORD}
-      POSTGRES_DB_NAME: ${DB_NAME}
+      POSTGRES_DB: ${DB_NAME}
