@@ -6,7 +6,7 @@
   "scripts": {
     "start": "node server.js",
     "dev": "npx nodemon server.js",
-    "test": "test-unit-cdi"
+    "test": "jest"
   },
   "keywords": [
     "nodejs",
@@ -30,7 +30,7 @@
     "sequelize-cli": "^6.6.3"
   },
   "devDependencies": {
-    "jest": "^30.2.0",
+    "jest": "^29.7.0",
     "nodemon": "^3.0.2",
     "supertest": "^7.1.4"
   }

@@ -16,6 +16,7 @@ const transporter = nodemailer.createTransport({
 
 const register = async (req, res) => {
     try {
+
         const { username, email, password } = req.body;
 
         const userExists = await db.query(
@@ -33,17 +34,21 @@ const register = async (req, res) => {
         const hashedPassword = await bcrypt.hash(password, 10);
 
         const result = await db.query(
-            'INSERT INTO users (username, email, password) VALUES ($1, $2, $3) RETURNING id, username, email, created_at',
+            'INSERT INTO users (username, email, password, "createdAt", "updatedAt") VALUES ($1, $2, $3, NOW(), NOW()) RETURNING id, username, email, "createdAt"',
             [username, email, hashedPassword]
         );
 
         const user = result.rows[0];
 
-        const token = jwt.sign(
-            { id: user.id, email: user.email },
-            process.env.JWT_SECRET,
-            { expiresIn: process.env.JWT_EXPIRE }
-        );
+        
+        const roleResult = await db.query("SELECT id FROM roles WHERE name = 'Basico'");
+        if (roleResult.rows.length > 0) {
+            const roleId = roleResult.rows[0].id;
+            await db.query(
+                'INSERT INTO user_roles (username, role_id) VALUES ($1, $2)',
+                [user.username, roleId]
+            );
+        }
 
         res.status(201).json({
             success: true,
@@ -53,9 +58,8 @@ const register = async (req, res) => {
                     id: user.id,
                     username: user.username,
                     email: user.email,
-                    created_at: user.created_at
-                },
-                token
+                    created_at: user.createdAt
+                }
             }
         });
     } catch (error) {

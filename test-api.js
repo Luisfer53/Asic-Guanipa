@@ -1,7 +1,7 @@
 const https = require('https');
 const http = require('http');
 
-// Deshabilitar verificación SSL para desarrollo
+
 process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
 
 async function testAPI() {
@@ -12,7 +12,7 @@ async function testAPI() {
     const baseURL = 'http://localhost:3000';
     let token = '';
 
-    // Test 1: Verificar servidor
+    
     console.log('📝 TEST 1: Verificar que el servidor responde...');
     try {
         const response = await makeRequest('GET', `${baseURL}/`);
@@ -23,7 +23,7 @@ async function testAPI() {
         return;
     }
 
-    // Test 2: Registro de usuario
+    
     console.log('\n📝 TEST 2: Registrar nuevo usuario...');
     try {
         const userData = {
@@ -50,7 +50,7 @@ async function testAPI() {
         }
     }
 
-    // Test 3: Login
+    
     console.log('\n📝 TEST 3: Login con el usuario creado...');
     try {
         const loginData = {
@@ -71,7 +71,7 @@ async function testAPI() {
         }
     }
 
-    // Test 4: Obtener perfil (ruta protegida)
+    
     console.log('\n📝 TEST 4: Obtener perfil (ruta protegida)...');
     try {
         const response = await makeRequest('GET', `${baseURL}/api/auth/profile`, null, {
@@ -89,7 +89,7 @@ async function testAPI() {
         }
     }
 
-    // Test 5: Recuperación de contraseña
+    
     console.log('\n📝 TEST 5: Solicitar recuperación de contraseña...');
     try {
         const response = await makeRequest('POST', `${baseURL}/api/auth/forgot-password`, {
@@ -105,7 +105,7 @@ async function testAPI() {
         }
     }
 
-    // Test 6: Intentar acceder sin token
+    
     console.log('\n📝 TEST 6: Intentar acceder a ruta protegida sin token...');
     try {
         const response = await makeRequest('GET', `${baseURL}/api/auth/profile`);
@@ -115,7 +115,7 @@ async function testAPI() {
         console.log('   Error:', error.message);
     }
 
-    // Test 7: Login con credenciales incorrectas
+    
     console.log('\n📝 TEST 7: Login con contraseña incorrecta...');
     try {
         const response = await makeRequest('POST', `${baseURL}/api/auth/login`, {
