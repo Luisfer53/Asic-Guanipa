@@ -40,7 +40,7 @@ jobs:
             IMAGE=${{ secrets.DOCKER_USERNAME }}/${{ secrets.DOCKER_IMAGE }} \
             /app/create-container \
             --restart unless-stopped \
-            --network servisan-network \
+            --network asic-guanipa-network \
             -e NODE_ENV=production \
             -e PORT=3000 \
             -e DB_HOST=${{ secrets.DB_HOST }} \
