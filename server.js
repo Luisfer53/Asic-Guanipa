@@ -3,6 +3,7 @@ const cors = require('cors');
 require('dotenv').config();
 
 const authRoutes = require('./src/routes/authRoutes');
+const patientRoutes = require('./src/routes/patientRoutes');
 
 const app = express();
 
@@ -20,12 +21,15 @@ app.get('/', (req, res) => {
             login: 'POST /api/auth/login',
             forgotPassword: 'POST /api/auth/forgot-password',
             resetPassword: 'POST /api/auth/reset-password',
-            profile: 'GET /api/auth/profile (requiere token)'
+            profile: 'GET /api/auth/profile (requiere token)',
+            pacientes: 'GET /api/pacientes',
+            reportes: 'GET /api/reportes'
         }
     });
 });
 
 app.use('/api/auth', authRoutes);
+app.use('/api', patientRoutes);
 
 app.use((err, req, res, next) => {
     console.error('Error:', err);
