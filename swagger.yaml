@@ -1,0 +1,497 @@
+openapi: 3.0.0
+info:
+  title: API de Proyecto Uptjaa CDI
+  description: Documentación de la API para el sistema de registro de pacientes y autenticación.
+  version: 1.0.0
+servers:
+  - url: http://localhost:3000/api
+    description: Servidor de Desarrollo
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    User:
+      type: object
+      properties:
+        id:
+          type: integer
+        username:
+          type: string
+        email:
+          type: string
+          format: email
+        created_at:
+          type: string
+          format: date-time
+    
+    PatientRecord:
+      type: object
+      required:
+        - nombre
+        - apellido
+        - edad
+        - sexo
+        - cedula
+        - fecha
+      properties:
+        id:
+          type: integer
+        nombre:
+          type: string
+        apellido:
+          type: string
+        edad:
+          type: integer
+          minimum: 0
+        sexo:
+          type: string
+          enum: [M, F]
+        cedula:
+          type: string
+        telefono:
+          type: string
+        direccion:
+          type: string
+        diagnostico:
+          type: string
+        fecha:
+          type: string
+          format: date
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    ErrorResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        message:
+          type: string
+        error:
+          type: object
+
+security:
+  - BearerAuth: []
+
+paths:
+  /auth/register:
+    post:
+      summary: Registrar un nuevo usuario
+      description: Crea una nueva cuenta de usuario. Requiere rol de Administrador.
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - username
+                - email
+                - password
+              properties:
+                username:
+                  type: string
+                  minLength: 3
+                  maxLength: 50
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+                  minLength: 6
+                  description: Debe contener al menos una mayúscula, una minúscula y un número.
+      responses:
+        '201':
+          description: Usuario registrado exitosamente
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                  data:
+                    type: object
+                    properties:
+                      user:
+                        $ref: '#/components/schemas/User'
+        '400':
+          description: Datos inválidos o usuario ya existente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: No autorizado (Token faltante o inválido)
+        '403':
+          description: Prohibido (Requiere rol Admin)
+
+  /auth/login:
+    post:
+      summary: Iniciar sesión
+      description: Autentica un usuario y devuelve un token JWT.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+                - password
+              properties:
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+      responses:
+        '200':
+          description: Login exitoso
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                  data:
+                    type: object
+                    properties:
+                      user:
+                        type: object
+                        properties:
+                          id:
+                            type: integer
+                          username:
+                            type: string
+                          email:
+                            type: string
+                      token:
+                        type: string
+        '401':
+          description: Credenciales inválidas
+
+  /auth/forgot-password:
+    post:
+      summary: Solicitar recuperación de contraseña
+      description: Envía un email con un token para restablecer la contraseña.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+              properties:
+                email:
+                  type: string
+                  format: email
+      responses:
+        '200':
+          description: Solicitud procesada (si el email existe)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+
+  /auth/reset-password:
+    post:
+      summary: Restablecer contraseña
+      description: Cambia la contraseña usando un token válido.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - token
+                - newPassword
+              properties:
+                token:
+                  type: string
+                newPassword:
+                  type: string
+                  minLength: 6
+      responses:
+        '200':
+          description: Contraseña restablecida exitosamente
+        '400':
+          description: Token inválido o expirado
+
+  /auth/profile:
+    get:
+      summary: Obtener perfil del usuario
+      description: Devuelve la información del usuario autenticado.
+      responses:
+        '200':
+          description: Perfil obtenido exitosamente
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/User'
+        '401':
+          description: No autorizado
+
+  /pacientes:
+    get:
+      summary: Listar pacientes
+      description: Obtiene una lista de registros de pacientes. Permite filtrar por fecha o cédula.
+      parameters:
+        - in: query
+          name: fecha
+          schema:
+            type: string
+            format: date
+          description: Filtrar por fecha (YYYY-MM-DD)
+        - in: query
+          name: cedula
+          schema:
+            type: string
+          description: Filtrar por cédula
+      responses:
+        '200':
+          description: Lista de pacientes obtenida
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/PatientRecord'
+    post:
+      summary: Registrar paciente
+      description: Crea un nuevo registro de paciente (visita).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - nombre
+                - apellido
+                - edad
+                - sexo
+                - cedula
+                - fecha
+              properties:
+                nombre:
+                  type: string
+                apellido:
+                  type: string
+                edad:
+                  type: integer
+                sexo:
+                  type: string
+                  enum: [M, F]
+                cedula:
+                  type: string
+                telefono:
+                  type: string
+                direccion:
+                  type: string
+                diagnostico:
+                  type: string
+                fecha:
+                  type: string
+                  format: date
+      responses:
+        '201':
+          description: Paciente registrado exitosamente
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                  data:
+                    $ref: '#/components/schemas/PatientRecord'
+        '400':
+          description: Datos faltantes o inválidos
+
+  /pacientes/{cedula}/historial:
+    get:
+      summary: Obtener historial de paciente
+      description: Obtiene todos los registros asociados a una cédula específica.
+      parameters:
+        - in: path
+          name: cedula
+          required: true
+          schema:
+            type: string
+          description: Cédula del paciente
+      responses:
+        '200':
+          description: Historial obtenido
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/PatientRecord'
+
+  /pacientes/{id}:
+    put:
+      summary: Actualizar registro de paciente
+      description: Actualiza los datos de un registro específico. Requiere rol Admin.
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+          description: ID del registro
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                nombre:
+                  type: string
+                apellido:
+                  type: string
+                edad:
+                  type: integer
+                sexo:
+                  type: string
+                telefono:
+                  type: string
+                direccion:
+                  type: string
+                diagnostico:
+                  type: string
+                fecha:
+                  type: string
+                  format: date
+      responses:
+        '200':
+          description: Registro actualizado
+        '404':
+          description: Registro no encontrado
+        '403':
+          description: Prohibido (Requiere rol Admin)
+
+    delete:
+      summary: Eliminar registro de paciente
+      description: Elimina un registro específico. Requiere rol Admin.
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+          description: ID del registro
+      responses:
+        '200':
+          description: Registro eliminado
+        '404':
+          description: Registro no encontrado
+        '403':
+          description: Prohibido (Requiere rol Admin)
+
+  /reportes:
+    get:
+      summary: Generar reporte diario
+      description: Genera un reporte de los pacientes atendidos. Requiere rol Admin.
+      parameters:
+        - in: query
+          name: fecha
+          required: true
+          schema:
+            type: string
+            format: date
+          description: Fecha del reporte (YYYY-MM-DD)
+        - in: query
+          name: formato
+          schema:
+            type: string
+            enum: [json, excel]
+            default: json
+          description: Formato de salida
+      responses:
+        '200':
+          description: Reporte generado
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  fecha:
+                    type: string
+                    format: date
+                  stats:
+                    type: object
+                    properties:
+                      total:
+                        type: integer
+                      hombres:
+                        type: integer
+                      mujeres:
+                        type: integer
+                      menores:
+                        type: integer
+                      mayores:
+                        type: integer
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/PatientRecord'
+            application/vnd.openxmlformats-officedocument.spreadsheetml.sheet:
+              schema:
+                type: string
+                format: binary
