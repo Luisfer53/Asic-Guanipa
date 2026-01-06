@@ -16,6 +16,8 @@ jobs:
       DB_USER: username_ci
       DB_PASSWORD: password_ci
       DB_PORT: 5432
+      JWT_SECRET: tu_secreto_jwt_super_seguro_cambialo
+      JWT_EXPIRE: 24h
       NODE_ENV: test
 
     services:
