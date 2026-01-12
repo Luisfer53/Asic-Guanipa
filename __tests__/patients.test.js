@@ -42,7 +42,7 @@ describe('Patient Registry API Tests', () => {
 
             // Use raw SQL for user_roles as model doesn't exist
             await db.sequelize.query(
-                'INSERT INTO user_roles (username, role_id, "createdAt", "updatedAt") VALUES (?, ?, NOW(), NOW())',
+                'INSERT INTO user_roles (username, role_id, created_at, updated_at) VALUES (?, ?, NOW(), NOW())',
                 { replacements: [admin.username, adminRole.id] }
             );
 
@@ -56,7 +56,7 @@ describe('Patient Registry API Tests', () => {
             });
             const medicoRole = await db.Role.findOne({ where: { name: 'Medico' } });
             await db.sequelize.query(
-                'INSERT INTO user_roles (username, role_id, "createdAt", "updatedAt") VALUES (?, ?, NOW(), NOW())',
+                'INSERT INTO user_roles (username, role_id, created_at, updated_at) VALUES (?, ?, NOW(), NOW())',
                 { replacements: [medico.username, medicoRole.id] }
             );
 
