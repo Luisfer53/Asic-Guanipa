@@ -45,7 +45,7 @@ const register = async (req, res) => {
         if (roleResult.rows.length > 0) {
             const roleId = roleResult.rows[0].id;
             await db.query(
-                'INSERT INTO user_roles (username, role_id) VALUES ($1, $2)',
+                'INSERT INTO user_roles (username, role_id, created_at, updated_at) VALUES ($1, $2, NOW(), NOW())',
                 [user.username, roleId]
             );
         }
@@ -274,13 +274,17 @@ const getProfile = async (req, res) => {
 };
 
 const updateUser = async (req, res) => {
+    const client = await db.connect();
     try {
         const { id } = req.params;
         const { username, email, password, role } = req.body;
 
-        const userResult = await db.query('SELECT * FROM users WHERE id = $1', [id]);
+        await client.query('BEGIN');
+
+        const userResult = await client.query('SELECT * FROM users WHERE id = $1', [id]);
 
         if (userResult.rows.length === 0) {
+            await client.query('ROLLBACK');
             return res.status(404).json({
                 success: false,
                 message: 'Usuario no encontrado'
@@ -294,21 +298,26 @@ const updateUser = async (req, res) => {
             hashedPassword = await bcrypt.hash(password, 10);
         }
 
-        await db.query(
+        await client.query(
             'UPDATE users SET username = COALESCE($1, username), email = COALESCE($2, email), password = $3, "updatedAt" = NOW() WHERE id = $4',
             [username, email, hashedPassword, id]
         );
 
         if (role) {
-            const roleResult = await db.query('SELECT id FROM roles WHERE name = $1', [role]);
+            const roleResult = await client.query('SELECT id FROM roles WHERE name = $1', [role]);
             if (roleResult.rows.length > 0) {
                 const roleId = roleResult.rows[0].id;
-                await db.query('DELETE FROM user_roles WHERE username = $1', [user.username]);
+                await client.query('DELETE FROM user_roles WHERE username = $1', [user.username]);
                 const newUsername = username || user.username;
 
-                await db.query('INSERT INTO user_roles (username, role_id) VALUES ($1, $2)', [newUsername, roleId]);
+                await client.query(
+                    'INSERT INTO user_roles (username, role_id, created_at, updated_at) VALUES ($1, $2, NOW(), NOW())',
+                    [newUsername, roleId]
+                );
             }
         }
+
+        await client.query('COMMIT');
 
         res.status(200).json({
             success: true,
@@ -316,12 +325,15 @@ const updateUser = async (req, res) => {
         });
 
     } catch (error) {
+        await client.query('ROLLBACK');
         console.error('Error al actualizar usuario:', error);
         res.status(500).json({
             success: false,
             message: 'Error al actualizar usuario',
             error: error.message
         });
+    } finally {
+        client.release();
     }
 };
 
