@@ -48,6 +48,8 @@ module.exports = {
 
             if (userRoles.length === 0) {
                 await queryInterface.bulkInsert('user_roles', [{
+                    created_at: new Date(),
+                    updated_at: new Date(),
                     username: username,
                     role_id: roleId
                 }], {});
