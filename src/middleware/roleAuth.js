@@ -24,7 +24,7 @@ const isAdmin = async (req, res, next) => {
             SELECT r.name 
             FROM user_roles ur 
             JOIN roles r ON ur.role_id = r.id 
-            WHERE ur.username = $1 AND r.name = 'Administrador'
+            WHERE ur.username = $1 AND r.name = 'Admin'
         `, [username]);
 
         if (roleResult.rows.length > 0) {

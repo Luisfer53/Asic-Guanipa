@@ -40,7 +40,7 @@ const register = async (req, res) => {
 
         const user = result.rows[0];
 
-        
+
         const roleResult = await db.query("SELECT id FROM roles WHERE name = 'Basico'");
         if (roleResult.rows.length > 0) {
             const roleId = roleResult.rows[0].id;
@@ -273,10 +273,96 @@ const getProfile = async (req, res) => {
     }
 };
 
+const updateUser = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { username, email, password, role } = req.body;
+
+        const userResult = await db.query('SELECT * FROM users WHERE id = $1', [id]);
+
+        if (userResult.rows.length === 0) {
+            return res.status(404).json({
+                success: false,
+                message: 'Usuario no encontrado'
+            });
+        }
+
+        const user = userResult.rows[0];
+        let hashedPassword = user.password;
+
+        if (password) {
+            hashedPassword = await bcrypt.hash(password, 10);
+        }
+
+        await db.query(
+            'UPDATE users SET username = COALESCE($1, username), email = COALESCE($2, email), password = $3, "updatedAt" = NOW() WHERE id = $4',
+            [username, email, hashedPassword, id]
+        );
+
+        if (role) {
+            const roleResult = await db.query('SELECT id FROM roles WHERE name = $1', [role]);
+            if (roleResult.rows.length > 0) {
+                const roleId = roleResult.rows[0].id;
+                await db.query('DELETE FROM user_roles WHERE username = $1', [user.username]);
+                const newUsername = username || user.username;
+
+                await db.query('INSERT INTO user_roles (username, role_id) VALUES ($1, $2)', [newUsername, roleId]);
+            }
+        }
+
+        res.status(200).json({
+            success: true,
+            message: 'Usuario actualizado exitosamente'
+        });
+
+    } catch (error) {
+        console.error('Error al actualizar usuario:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Error al actualizar usuario',
+            error: error.message
+        });
+    }
+};
+
+const deleteUser = async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        const userResult = await db.query('SELECT * FROM users WHERE id = $1', [id]);
+
+        if (userResult.rows.length === 0) {
+            return res.status(404).json({
+                success: false,
+                message: 'Usuario no encontrado'
+            });
+        }
+
+        await db.query('DELETE FROM users WHERE id = $1', [id]);
+
+        res.status(200).json({
+            success: true,
+            message: 'Usuario eliminado exitosamente'
+        });
+
+    } catch (error) {
+        console.error('Error al eliminar usuario:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Error al eliminar usuario',
+            error: error.message
+        });
+    }
+
+
+};
+
 module.exports = {
     register,
     login,
     forgotPassword,
     resetPassword,
-    getProfile
+    getProfile,
+    updateUser,
+    deleteUser
 };

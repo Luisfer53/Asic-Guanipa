@@ -268,6 +268,58 @@ paths:
         '401':
           description: No autorizado
 
+  /auth/users/{id}:
+    put:
+      summary: Actualizar usuario
+      description: Actualiza los datos de un usuario. Requiere rol Admin.
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+          description: ID del usuario
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                username:
+                  type: string
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+                role:
+                  type: string
+                  enum: [Admin, Medico, Asistente, Basico]
+      responses:
+        '200':
+          description: Usuario actualizado exitosamente
+        '404':
+          description: Usuario no encontrado
+        '403':
+          description: Prohibido (Requiere rol Admin)
+    delete:
+      summary: Eliminar usuario
+      description: Elimina un usuario. Requiere rol Admin.
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+          description: ID del usuario
+      responses:
+        '200':
+          description: Usuario eliminado exitosamente
+        '404':
+          description: Usuario no encontrado
+        '403':
+          description: Prohibido (Requiere rol Admin)
+
   /pacientes:
     get:
       summary: Listar pacientes
