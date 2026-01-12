@@ -10,10 +10,30 @@ async function testAPI() {
     console.log('='.repeat(60) + '\n');
 
     const baseURL = 'http://localhost:3000';
-    let token = '';
+    let adminToken = '';
 
-    
-    console.log('📝 TEST 1: Verificar que el servidor responde...');
+    console.log('📝 TEST 0: Login como Administrador (necesario para registrar)...');
+    try {
+        const adminLoginData = {
+            email: 'admin_frontend@test.com',
+            password: 'AdminFrontend123!'
+        };
+
+        const response = await makeRequest('POST', `${baseURL}/api/auth/login`, adminLoginData);
+        console.log('✅ Login de Administrador exitoso');
+        adminToken = response.data.token;
+
+        // Debug: Mostrar payload del token
+        const payload = JSON.parse(Buffer.from(adminToken.split('.')[1], 'base64').toString());
+        console.log('   Token Payload:', payload);
+    } catch (error) {
+        console.log('❌ Error en login de Admin:', error.message);
+        console.log('   Asegúrate de haber ejecutado los seeders: npx sequelize-cli db:seed:all');
+        return;
+    }
+
+
+    console.log('\n📝 TEST 1: Verificar que el servidor responde...');
     try {
         const response = await makeRequest('GET', `${baseURL}/`);
         console.log('✅ Servidor respondiendo correctamente');
@@ -23,7 +43,7 @@ async function testAPI() {
         return;
     }
 
-    
+
     console.log('\n📝 TEST 2: Registrar nuevo usuario...');
     try {
         const userData = {
@@ -33,7 +53,9 @@ async function testAPI() {
         };
         console.log('   Datos:', userData);
 
-        const response = await makeRequest('POST', `${baseURL}/api/auth/register`, userData);
+        const response = await makeRequest('POST', `${baseURL}/api/auth/register`, userData, {
+            'Authorization': `Bearer ${adminToken}`
+        });
         console.log('✅ Usuario registrado exitosamente');
         console.log('   User ID:', response.data.user.id);
         console.log('   Username:', response.data.user.username);
@@ -50,7 +72,7 @@ async function testAPI() {
         }
     }
 
-    
+
     console.log('\n📝 TEST 3: Login con el usuario creado...');
     try {
         const loginData = {
@@ -71,7 +93,7 @@ async function testAPI() {
         }
     }
 
-    
+
     console.log('\n📝 TEST 4: Obtener perfil (ruta protegida)...');
     try {
         const response = await makeRequest('GET', `${baseURL}/api/auth/profile`, null, {
@@ -81,7 +103,7 @@ async function testAPI() {
         console.log('   ID:', response.data.id);
         console.log('   Username:', response.data.username);
         console.log('   Email:', response.data.email);
-        console.log('   Creado:', response.data.created_at);
+        console.log('   Creado:', response.data.createdAt);
     } catch (error) {
         console.log('❌ Error:', error.message);
         if (error.response) {
@@ -89,7 +111,7 @@ async function testAPI() {
         }
     }
 
-    
+
     console.log('\n📝 TEST 5: Solicitar recuperación de contraseña...');
     try {
         const response = await makeRequest('POST', `${baseURL}/api/auth/forgot-password`, {
@@ -105,7 +127,7 @@ async function testAPI() {
         }
     }
 
-    
+
     console.log('\n📝 TEST 6: Intentar acceder a ruta protegida sin token...');
     try {
         const response = await makeRequest('GET', `${baseURL}/api/auth/profile`);
@@ -115,7 +137,7 @@ async function testAPI() {
         console.log('   Error:', error.message);
     }
 
-    
+
     console.log('\n📝 TEST 7: Login con contraseña incorrecta...');
     try {
         const response = await makeRequest('POST', `${baseURL}/api/auth/login`, {

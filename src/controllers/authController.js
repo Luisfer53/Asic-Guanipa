@@ -58,7 +58,7 @@ const register = async (req, res) => {
                     id: user.id,
                     username: user.username,
                     email: user.email,
-                    created_at: user.createdAt
+                    createdAt: user.createdAt
                 }
             }
         });
@@ -97,7 +97,7 @@ const login = async (req, res) => {
         }
 
         const token = jwt.sign(
-            { id: user.id, email: user.email },
+            { id: user.id, email: user.email, username: user.username },
             process.env.JWT_SECRET,
             { expiresIn: process.env.JWT_EXPIRE }
         );
@@ -150,7 +150,7 @@ const forgotPassword = async (req, res) => {
         );
 
         await db.query(
-            'INSERT INTO password_reset_tokens (user_id, token, expires_at) VALUES ($1, $2, $3)',
+            'INSERT INTO password_reset_tokens (user_id, token, expires_at, "createdAt", "updatedAt") VALUES ($1, $2, $3, NOW(), NOW())',
             [user.id, hashedToken, expiresAt]
         );
 
@@ -222,7 +222,7 @@ const resetPassword = async (req, res) => {
         const hashedPassword = await bcrypt.hash(newPassword, 10);
 
         await db.query(
-            'UPDATE users SET password = $1, updated_at = NOW() WHERE id = $2',
+            'UPDATE users SET password = $1, "updatedAt" = NOW() WHERE id = $2',
             [hashedPassword, resetRecord.user_id]
         );
 
@@ -248,7 +248,7 @@ const resetPassword = async (req, res) => {
 const getProfile = async (req, res) => {
     try {
         const result = await db.query(
-            'SELECT id, username, email, created_at, updated_at FROM users WHERE id = $1',
+            'SELECT id, username, email, "createdAt", "updatedAt" FROM users WHERE id = $1',
             [req.user.id]
         );
 
@@ -326,19 +326,36 @@ const updateUser = async (req, res) => {
 };
 
 const deleteUser = async (req, res) => {
+    const client = await db.connect();
     try {
         const { id } = req.params;
 
-        const userResult = await db.query('SELECT * FROM users WHERE id = $1', [id]);
+        await client.query('BEGIN');
+
+        const userResult = await client.query('SELECT * FROM users WHERE id = $1', [id]);
 
         if (userResult.rows.length === 0) {
+            await client.query('ROLLBACK');
             return res.status(404).json({
                 success: false,
                 message: 'Usuario no encontrado'
             });
         }
 
-        await db.query('DELETE FROM users WHERE id = $1', [id]);
+        const user = userResult.rows[0];
+
+        // Eliminar tokens de recuperación de contraseña relacionados
+        await client.query('DELETE FROM password_reset_tokens WHERE user_id = $1', [id]);
+
+        // Eliminar roles del usuario (aunque tenga CASCADE, lo hacemos explícito o confiamos en el DB)
+        // La migración de user_roles tiene ON DELETE CASCADE para el username.
+        // Pero si el username cambia o hay inconsistencias, mejor asegurar.
+        await client.query('DELETE FROM user_roles WHERE username = $1', [user.username]);
+
+        // Finalmente eliminar el usuario
+        await client.query('DELETE FROM users WHERE id = $1', [id]);
+
+        await client.query('COMMIT');
 
         res.status(200).json({
             success: true,
@@ -346,15 +363,16 @@ const deleteUser = async (req, res) => {
         });
 
     } catch (error) {
+        await client.query('ROLLBACK');
         console.error('Error al eliminar usuario:', error);
         res.status(500).json({
             success: false,
             message: 'Error al eliminar usuario',
             error: error.message
         });
+    } finally {
+        client.release();
     }
-
-
 };
 
 module.exports = {
