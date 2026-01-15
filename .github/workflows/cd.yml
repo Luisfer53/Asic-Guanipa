@@ -55,4 +55,4 @@ jobs:
             -e SMTP_PORT=${{ secrets.SMTP_PORT }} \
             -e SMTP_PASSWORD=${{ secrets.SMTP_PASSWORD }} \
             -e EMAIL_FROM=${{ secrets.EMAIL_FROM }} \
-            -e FRONTEND_URL="https://asic-guanipa.online"
+            -e FRONTEND_URL="https://dashboard.asic-guanipa.online"
