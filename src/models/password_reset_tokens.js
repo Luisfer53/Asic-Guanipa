@@ -4,9 +4,9 @@ const {
 } = require('sequelize');
 module.exports = (sequelize, DataTypes) => {
   class password_reset_tokens extends Model {
-    
+
     static associate(models) {
-      
+
     }
   }
   password_reset_tokens.init({
@@ -17,6 +17,7 @@ module.exports = (sequelize, DataTypes) => {
   }, {
     sequelize,
     modelName: 'password_reset_tokens',
+    underscored: true,
   });
   return password_reset_tokens;
 };

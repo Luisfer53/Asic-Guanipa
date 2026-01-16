@@ -6,10 +6,10 @@ const Sequelize = require('sequelize');
 const process = require('process');
 const basename = path.basename(__filename);
 const env = process.env.NODE_ENV || 'development';
-// Adjust path to config. 
-// config/database.js is in root/config/database.js
-// This file is in src/models/index.js
-// So path is ../../config/database.js
+
+
+
+
 const config = require(__dirname + '/../../config/database.js')[env];
 const db = {};
 

@@ -1,36 +1,84 @@
 const db = require('../models');
-const RegistroPacientesDiarios = db.RegistroPacientesDiarios;
+const { Op } = require('sequelize');
+const Paciente = db.Paciente;
+const AtencionDiaria = db.AtencionDiaria;
 const ExcelJS = require('exceljs');
 
 const generateDailyReport = async (req, res) => {
     try {
-        const { fecha, formato } = req.query;
+        const { fecha, formato, limit = 100, offset = 0 } = req.query;
 
-        if (!fecha) {
-            return res.status(400).json({
-                success: false,
-                message: 'Debe especificar una fecha (YYYY-MM-DD)'
-            });
+        const where = {};
+        if (fecha) {
+            where.fecha = fecha;
         }
 
-        const patients = await RegistroPacientesDiarios.findAll({
-            where: { fecha }
+        
+        const { count, rows: attentions } = await AtencionDiaria.findAndCountAll({
+            where,
+            include: [
+                {
+                    model: Paciente,
+                    as: 'paciente'
+                }
+            ],
+            limit: parseInt(limit),
+            offset: parseInt(offset),
+            order: [['fecha', 'DESC']]
         });
 
+        
+        
+        
+        
+        
+        
+
         const stats = {
-            total: patients.length,
-            hombres: patients.filter(p => p.sexo === 'M').length,
-            mujeres: patients.filter(p => p.sexo === 'F').length,
-            menores: patients.filter(p => p.edad < 18).length,
-            mayores: patients.filter(p => p.edad >= 60).length
+            total: count,
+            hombres: await AtencionDiaria.count({
+                where,
+                include: [{ model: Paciente, as: 'paciente', where: { sexo: 'M' } }],
+                distinct: true,
+                col: 'paciente_id'
+            }),
+            mujeres: await AtencionDiaria.count({
+                where,
+                include: [{ model: Paciente, as: 'paciente', where: { sexo: 'F' } }],
+                distinct: true,
+                col: 'paciente_id'
+            }),
+            menores: await AtencionDiaria.count({
+                where,
+                include: [{ model: Paciente, as: 'paciente' }],
+                where: { ...where, edad_atencion: { [Op.lt]: 18 } },
+                distinct: true,
+                col: 'paciente_id'
+            }),
+            mayores: await AtencionDiaria.count({
+                where,
+                where: { ...where, edad_atencion: { [Op.gte]: 60 } },
+                distinct: true,
+                col: 'paciente_id'
+            })
         };
 
         if (formato === 'excel') {
+            
+            
+            
+            const allAttentions = await AtencionDiaria.findAll({
+                where,
+                include: [{ model: Paciente, as: 'paciente' }],
+                order: [['fecha', 'DESC']]
+            });
+
             const workbook = new ExcelJS.Workbook();
-            const worksheet = workbook.addWorksheet(`Reporte ${fecha}`);
+            const worksheet = workbook.addWorksheet(`Reporte ${fecha || 'General'}`);
 
             worksheet.columns = [
-                { header: 'ID', key: 'id', width: 10 },
+                { header: 'ID Atención', key: 'id', width: 10 },
+                { header: 'Fecha', key: 'fecha', width: 15 },
                 { header: 'Nombre', key: 'nombre', width: 20 },
                 { header: 'Apellido', key: 'apellido', width: 20 },
                 { header: 'Cédula', key: 'cedula', width: 15 },
@@ -41,29 +89,48 @@ const generateDailyReport = async (req, res) => {
                 { header: 'Teléfono', key: 'telefono', width: 15 }
             ];
 
-            patients.forEach(p => {
-                worksheet.addRow(p);
+            allAttentions.forEach(a => {
+                worksheet.addRow({
+                    id: a.id,
+                    fecha: a.fecha,
+                    nombre: a.paciente.nombre,
+                    apellido: a.paciente.apellido,
+                    cedula: a.paciente.cedula,
+                    edad: a.edad_atencion,
+                    sexo: a.paciente.sexo,
+                    diagnostico: a.diagnostico,
+                    direccion: a.paciente.direccion,
+                    telefono: a.paciente.telefono
+                });
             });
 
-            // Add stats
+            
             worksheet.addRow([]);
             worksheet.addRow(['Resumen']);
             worksheet.addRow(['Total Pacientes', stats.total]);
             worksheet.addRow(['Hombres', stats.hombres]);
             worksheet.addRow(['Mujeres', stats.mujeres]);
+            worksheet.addRow(['Menores (<18)', stats.menores]);
+            worksheet.addRow(['Mayores (>=60)', stats.mayores]);
 
             res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-            res.setHeader('Content-Disposition', `attachment; filename=reporte-${fecha}.xlsx`);
+            res.setHeader('Content-Disposition', `attachment; filename=reporte-${fecha || 'general'}.xlsx`);
 
             await workbook.xlsx.write(res);
             res.end();
         } else {
-            // Default JSON
+            
             res.status(200).json({
                 success: true,
-                fecha,
+                fecha: fecha || 'Todos',
+                pagination: {
+                    total: count,
+                    limit: parseInt(limit),
+                    offset: parseInt(offset),
+                    pages: Math.ceil(count / limit)
+                },
                 stats,
-                data: patients
+                data: attentions
             });
         }
 
@@ -80,3 +147,4 @@ const generateDailyReport = async (req, res) => {
 module.exports = {
     generateDailyReport
 };
+

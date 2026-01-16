@@ -28,16 +28,9 @@ components:
         created_at:
           type: string
           format: date-time
-    
-    PatientRecord:
+
+    Patient:
       type: object
-      required:
-        - nombre
-        - apellido
-        - edad
-        - sexo
-        - cedula
-        - fecha
       properties:
         id:
           type: integer
@@ -45,29 +38,63 @@ components:
           type: string
         apellido:
           type: string
-        edad:
-          type: integer
-          minimum: 0
+        cedula:
+          type: string
+          nullable: true
+        fecha_nacimiento:
+          type: string
+          format: date
         sexo:
           type: string
           enum: [M, F]
-        cedula:
-          type: string
         telefono:
           type: string
         direccion:
           type: string
+        nombre_representante:
+          type: string
+        apellido_representante:
+          type: string
+        cedula_representante:
+          type: string
+        telefono_representante:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    Attention:
+      type: object
+      properties:
+        id:
+          type: integer
+        paciente_id:
+          type: integer
         diagnostico:
           type: string
         fecha:
           type: string
           format: date
-        createdAt:
+        edad_atencion:
+          type: integer
+        id_usuario_registra:
+          type: integer
+        created_at:
           type: string
           format: date-time
-        updatedAt:
+        updated_at:
           type: string
           format: date-time
+        paciente:
+          $ref: '#/components/schemas/Patient'
+        usuario:
+          type: object
+          properties:
+            username:
+              type: string
 
     ErrorResponse:
       type: object
@@ -137,7 +164,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
         '401':
-          description: No autorizado (Token faltante o inválido)
+          description: No autorizado
         '403':
           description: Prohibido (Requiere rol Admin)
 
@@ -178,14 +205,7 @@ paths:
                     type: object
                     properties:
                       user:
-                        type: object
-                        properties:
-                          id:
-                            type: integer
-                          username:
-                            type: string
-                          email:
-                            type: string
+                        $ref: '#/components/schemas/User'
                       token:
                         type: string
         '401':
@@ -322,8 +342,8 @@ paths:
 
   /pacientes:
     get:
-      summary: Listar pacientes
-      description: Obtiene una lista de registros de pacientes. Permite filtrar por fecha o cédula.
+      summary: Listar atenciones de pacientes
+      description: Obtiene una lista de registros de atenciones. Permite filtrar por fecha o cédula.
       parameters:
         - in: query
           name: fecha
@@ -338,7 +358,7 @@ paths:
           description: Filtrar por cédula
       responses:
         '200':
-          description: Lista de pacientes obtenida
+          description: Lista de atenciones obtenida
           content:
             application/json:
               schema:
@@ -350,10 +370,10 @@ paths:
                   data:
                     type: array
                     items:
-                      $ref: '#/components/schemas/PatientRecord'
+                      $ref: '#/components/schemas/Attention'
     post:
-      summary: Registrar paciente
-      description: Crea un nuevo registro de paciente (visita).
+      summary: Registrar paciente y atención
+      description: Crea un nuevo registro de paciente (si no existe) y una nueva atención (visita).
       requestBody:
         required: true
         content:
@@ -363,22 +383,25 @@ paths:
               required:
                 - nombre
                 - apellido
-                - edad
                 - sexo
-                - cedula
                 - fecha
               properties:
                 nombre:
                   type: string
                 apellido:
                   type: string
+                cedula:
+                  type: string
+                  description: Opcional para menores de edad.
+                fecha_nacimiento:
+                  type: string
+                  format: date
                 edad:
                   type: integer
+                  description: Opcional si se provee fecha_nacimiento. Edad al momento de la atención.
                 sexo:
                   type: string
                   enum: [M, F]
-                cedula:
-                  type: string
                 telefono:
                   type: string
                 direccion:
@@ -388,9 +411,21 @@ paths:
                 fecha:
                   type: string
                   format: date
+                nombre_representante:
+                  type: string
+                  description: Requerido para menores de edad.
+                apellido_representante:
+                  type: string
+                  description: Requerido para menores de edad.
+                cedula_representante:
+                  type: string
+                  description: Requerido para menores de edad.
+                telefono_representante:
+                  type: string
+                  description: Requerido para menores de edad.
       responses:
         '201':
-          description: Paciente registrado exitosamente
+          description: Registrado exitosamente
           content:
             application/json:
               schema:
@@ -402,14 +437,19 @@ paths:
                   message:
                     type: string
                   data:
-                    $ref: '#/components/schemas/PatientRecord'
+                    type: object
+                    properties:
+                      patient:
+                        $ref: '#/components/schemas/Patient'
+                      attention:
+                        $ref: '#/components/schemas/Attention'
         '400':
           description: Datos faltantes o inválidos
 
   /pacientes/{cedula}/historial:
     get:
       summary: Obtener historial de paciente
-      description: Obtiene todos los registros asociados a una cédula específica.
+      description: Obtiene todas las atenciones asociadas a una cédula específica.
       parameters:
         - in: path
           name: cedula
@@ -431,63 +471,107 @@ paths:
                   data:
                     type: array
                     items:
-                      $ref: '#/components/schemas/PatientRecord'
+                      $ref: '#/components/schemas/Attention'
 
-  /pacientes/{id}:
-    put:
-      summary: Actualizar registro de paciente
-      description: Actualiza los datos de un registro específico. Requiere rol Admin.
+  /pacientes/atencion/{id}:
+    get:
+      summary: Obtener atención por ID
+      description: Obtiene los detalles de una atención específica.
       parameters:
         - in: path
           name: id
           required: true
           schema:
             type: integer
-          description: ID del registro
+          description: ID de la atención
+      responses:
+        '200':
+          description: Atención obtenida
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/Attention'
+        '404':
+          description: Atención no encontrada
+
+  /pacientes/{id}:
+    put:
+      summary: Actualizar registro de atención (y paciente)
+      description: Actualiza los datos de una atención específica y opcionalmente datos del paciente asociado. Requiere rol Admin.
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+          description: ID de la atención
       requestBody:
         content:
           application/json:
             schema:
               type: object
               properties:
+                diagnostico:
+                  type: string
+                fecha:
+                  type: string
+                  format: date
+                edad:
+                  type: integer
                 nombre:
                   type: string
                 apellido:
                   type: string
-                edad:
-                  type: integer
                 sexo:
                   type: string
                 telefono:
                   type: string
                 direccion:
                   type: string
-                diagnostico:
+                cedula:
                   type: string
-                fecha:
+                fecha_nacimiento:
                   type: string
                   format: date
       responses:
         '200':
-          description: Registro actualizado
+          description: Actualizado exitosamente
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                  data:
+                    $ref: '#/components/schemas/Attention'
         '404':
           description: Registro no encontrado
         '403':
           description: Prohibido (Requiere rol Admin)
 
     delete:
-      summary: Eliminar registro de paciente
-      description: Elimina un registro específico. Requiere rol Admin.
+      summary: Eliminar registro de atención
+      description: Elimina una atención específica. Requiere rol Admin.
       parameters:
         - in: path
           name: id
           required: true
           schema:
             type: integer
-          description: ID del registro
+          description: ID de la atención
       responses:
         '200':
-          description: Registro eliminado
+          description: Eliminado exitosamente
         '404':
           description: Registro no encontrado
         '403':
@@ -496,11 +580,10 @@ paths:
   /reportes:
     get:
       summary: Generar reporte diario
-      description: Genera un reporte de los pacientes atendidos. Requiere rol Admin.
+      description: Genera un reporte de los pacientes atendidos con paginación y estadísticas. Requiere rol Admin.
       parameters:
         - in: query
           name: fecha
-          required: true
           schema:
             type: string
             format: date
@@ -512,6 +595,18 @@ paths:
             enum: [json, excel]
             default: json
           description: Formato de salida
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 100
+          description: Límite de registros por página
+        - in: query
+          name: offset
+          schema:
+            type: integer
+            default: 0
+          description: Desplazamiento para paginación
       responses:
         '200':
           description: Reporte generado
@@ -526,6 +621,17 @@ paths:
                   fecha:
                     type: string
                     format: date
+                  pagination:
+                    type: object
+                    properties:
+                      total:
+                        type: integer
+                      limit:
+                        type: integer
+                      offset:
+                        type: integer
+                      pages:
+                        type: integer
                   stats:
                     type: object
                     properties:
@@ -542,7 +648,7 @@ paths:
                   data:
                     type: array
                     items:
-                      $ref: '#/components/schemas/PatientRecord'
+                      $ref: '#/components/schemas/Attention'
             application/vnd.openxmlformats-officedocument.spreadsheetml.sheet:
               schema:
                 type: string

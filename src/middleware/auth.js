@@ -1,5 +1,5 @@
 const jwt = require('jsonwebtoken');
-const db = require('../config/database'); // Ensure we can access DB if needed, though JWT usually has roles
+const db = require('../config/database'); 
 
 const verifyToken = async (req, res, next) => {
     try {

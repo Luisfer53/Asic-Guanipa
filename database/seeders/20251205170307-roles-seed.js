@@ -13,16 +13,16 @@ module.exports = {
     if (!existingRoleNames.includes('Admin')) {
       rolesToInsert.push({
         name: 'Admin',
-        createdAt: new Date(),
-        updatedAt: new Date(),
+        created_at: new Date(),
+        updated_at: new Date(),
       });
     }
 
     if (!existingRoleNames.includes('User')) {
       rolesToInsert.push({
         name: 'User',
-        createdAt: new Date(),
-        updatedAt: new Date(),
+        created_at: new Date(),
+        updated_at: new Date(),
       });
     }
 

@@ -103,7 +103,7 @@ async function testAPI() {
         console.log('   ID:', response.data.id);
         console.log('   Username:', response.data.username);
         console.log('   Email:', response.data.email);
-        console.log('   Creado:', response.data.createdAt);
+        console.log('   Creado:', response.data.created_at);
     } catch (error) {
         console.log('❌ Error:', error.message);
         if (error.response) {

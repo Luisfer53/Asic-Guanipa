@@ -9,7 +9,7 @@ const YAML = require('yamljs');
 const path = require('path');
 const swaggerDocument = YAML.load(path.join(__dirname, 'swagger.yaml'));
 
-const prodUrl = 'https://api.asic-guanipa.online/api';
+const prodUrl = 'https://api.dashboard.asic-guanipa.online/api';
 const devUrl = 'http://localhost:3000/api';
 
 swaggerDocument.servers = [{
@@ -65,7 +65,7 @@ const PORT = process.env.PORT || 3000;
 if (require.main === module) {
     app.listen(PORT, () => {
         const currentUrl = process.env.SERVER_URL || (process.env.NODE_ENV === 'production' ? prodUrl : `http://localhost:${PORT}/api`);
-        const displayUrl = currentUrl.replace(/\/api$/, ''); // Remover /api para la URL base
+        const displayUrl = currentUrl.replace(/\/api$/, ''); 
 
         console.log('\n' + '═'.repeat(50));
         console.log(`🚀 Servidor corriendo en ${displayUrl}`);

@@ -22,8 +22,8 @@ module.exports = {
                 username: username,
                 email: email,
                 password: hashedPassword,
-                createdAt: new Date(),
-                updatedAt: new Date()
+                created_at: new Date(),
+                updated_at: new Date()
             }], { returning: true });
 
             userId = result[0].id;
