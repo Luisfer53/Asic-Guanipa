@@ -1,7 +1,10 @@
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
-const db = require('../config/database');
+const db = require('../models');
+const User = db.users;
+const Role = db.role;
+const PasswordResetToken = db.password_reset_tokens;
 const nodemailer = require('nodemailer');
 
 const transporter = nodemailer.createTransport({
@@ -16,15 +19,15 @@ const transporter = nodemailer.createTransport({
 
 const register = async (req, res) => {
     try {
-
         const { username, email, password } = req.body;
 
-        const userExists = await db.query(
-            'SELECT * FROM users WHERE email = $1 OR username = $2',
-            [email, username]
-        );
+        const userExists = await User.findOne({
+            where: {
+                [db.Sequelize.Op.or]: [{ email }, { username }]
+            }
+        });
 
-        if (userExists.rows.length > 0) {
+        if (userExists) {
             return res.status(400).json({
                 success: false,
                 message: 'El usuario o email ya existe'
@@ -33,20 +36,22 @@ const register = async (req, res) => {
 
         const hashedPassword = await bcrypt.hash(password, 10);
 
-        const result = await db.query(
-            'INSERT INTO users (username, email, password, created_at, updated_at) VALUES ($1, $2, $3, NOW(), NOW()) RETURNING id, username, email, created_at',
-            [username, email, hashedPassword]
-        );
+        const user = await User.create({
+            username,
+            email,
+            password: hashedPassword
+        });
 
-        const user = result.rows[0];
-
-
-        const roleResult = await db.query("SELECT id FROM roles WHERE name = 'Basico'");
-        if (roleResult.rows.length > 0) {
-            const roleId = roleResult.rows[0].id;
-            await db.query(
+        const role = await Role.findOne({ where: { name: 'Basico' } });
+        if (role) {
+            // Note: user_roles seems to be a join table without a direct model in some setups,
+            // but here we need to handle it. If there's no UserRole model, we might need a different approach.
+            // Based on previous search, there is no user_roles.js model.
+            // However, we can use raw query if needed, or better, define the association.
+            // For now, I'll use the sequelize instance to query the join table if no model exists.
+            await db.sequelize.query(
                 'INSERT INTO user_roles (username, role_id, created_at, updated_at) VALUES ($1, $2, NOW(), NOW())',
-                [user.username, roleId]
+                { bind: [user.username, role.id] }
             );
         }
 
@@ -76,16 +81,14 @@ const login = async (req, res) => {
     try {
         const { email, password } = req.body;
 
-        const result = await db.query('SELECT * FROM users WHERE email = $1', [email]);
+        const user = await User.findOne({ where: { email } });
 
-        if (result.rows.length === 0) {
+        if (!user) {
             return res.status(401).json({
                 success: false,
                 message: 'Credenciales inválidas'
             });
         }
-
-        const user = result.rows[0];
 
         const isPasswordValid = await bcrypt.compare(password, user.password);
 
@@ -128,31 +131,27 @@ const forgotPassword = async (req, res) => {
     try {
         const { email } = req.body;
 
-        const result = await db.query('SELECT * FROM users WHERE email = $1', [email]);
+        const user = await User.findOne({ where: { email } });
 
-        if (result.rows.length === 0) {
+        if (!user) {
             return res.status(200).json({
                 success: true,
                 message: 'Si el email existe, recibirás un enlace de recuperación'
             });
         }
 
-        const user = result.rows[0];
-
         const resetToken = crypto.randomBytes(32).toString('hex');
         const hashedToken = crypto.createHash('sha256').update(resetToken).digest('hex');
 
         const expiresAt = new Date(Date.now() + 3600000);
 
-        await db.query(
-            'DELETE FROM password_reset_tokens WHERE user_id = $1',
-            [user.id]
-        );
+        await PasswordResetToken.destroy({ where: { user_id: user.id } });
 
-        await db.query(
-            'INSERT INTO password_reset_tokens (user_id, token, expires_at, created_at, updated_at) VALUES ($1, $2, $3, NOW(), NOW())',
-            [user.id, hashedToken, expiresAt]
-        );
+        await PasswordResetToken.create({
+            user_id: user.id,
+            token: hashedToken,
+            expires_at: expiresAt
+        });
 
         console.log('\n🔐 TOKEN DE RECUPERACIÓN DE CONTRASEÑA:');
         console.log('═'.repeat(50));
@@ -205,31 +204,29 @@ const resetPassword = async (req, res) => {
 
         const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
 
-        const result = await db.query(
-            'SELECT * FROM password_reset_tokens WHERE token = $1 AND used = false AND expires_at > NOW()',
-            [hashedToken]
-        );
+        const resetRecord = await PasswordResetToken.findOne({
+            where: {
+                token: hashedToken,
+                used: false,
+                expires_at: { [db.Sequelize.Op.gt]: new Date() }
+            }
+        });
 
-        if (result.rows.length === 0) {
+        if (!resetRecord) {
             return res.status(400).json({
                 success: false,
                 message: 'Token inválido o expirado'
             });
         }
 
-        const resetRecord = result.rows[0];
-
         const hashedPassword = await bcrypt.hash(newPassword, 10);
 
-        await db.query(
-            'UPDATE users SET password = $1, updated_at = NOW() WHERE id = $2',
-            [hashedPassword, resetRecord.user_id]
+        await User.update(
+            { password: hashedPassword },
+            { where: { id: resetRecord.user_id } }
         );
 
-        await db.query(
-            'UPDATE password_reset_tokens SET used = true WHERE id = $1',
-            [resetRecord.id]
-        );
+        await resetRecord.update({ used: true });
 
         res.status(200).json({
             success: true,
@@ -247,12 +244,11 @@ const resetPassword = async (req, res) => {
 
 const getProfile = async (req, res) => {
     try {
-        const result = await db.query(
-            'SELECT id, username, email, created_at, updated_at FROM users WHERE id = $1',
-            [req.user.id]
-        );
+        const user = await User.findByPk(req.user.id, {
+            attributes: ['id', 'username', 'email', 'created_at', 'updated_at']
+        });
 
-        if (result.rows.length === 0) {
+        if (!user) {
             return res.status(404).json({
                 success: false,
                 message: 'Usuario no encontrado'
@@ -261,7 +257,7 @@ const getProfile = async (req, res) => {
 
         res.status(200).json({
             success: true,
-            data: result.rows[0]
+            data: user
         });
     } catch (error) {
         console.error('Error al obtener perfil:', error);
@@ -274,50 +270,52 @@ const getProfile = async (req, res) => {
 };
 
 const updateUser = async (req, res) => {
-    const client = await db.connect();
+    const transaction = await db.sequelize.transaction();
     try {
         const { id } = req.params;
         const { username, email, password, role } = req.body;
 
-        await client.query('BEGIN');
+        const user = await User.findByPk(id, { transaction });
 
-        const userResult = await client.query('SELECT * FROM users WHERE id = $1', [id]);
-
-        if (userResult.rows.length === 0) {
-            await client.query('ROLLBACK');
+        if (!user) {
+            await transaction.rollback();
             return res.status(404).json({
                 success: false,
                 message: 'Usuario no encontrado'
             });
         }
 
-        const user = userResult.rows[0];
         let hashedPassword = user.password;
-
         if (password) {
             hashedPassword = await bcrypt.hash(password, 10);
         }
 
-        await client.query(
-            'UPDATE users SET username = COALESCE($1, username), email = COALESCE($2, email), password = $3, updated_at = NOW() WHERE id = $4',
-            [username, email, hashedPassword, id]
-        );
+        await user.update({
+            username: username || user.username,
+            email: email || user.email,
+            password: hashedPassword
+        }, { transaction });
 
         if (role) {
-            const roleResult = await client.query('SELECT id FROM roles WHERE name = $1', [role]);
-            if (roleResult.rows.length > 0) {
-                const roleId = roleResult.rows[0].id;
-                await client.query('DELETE FROM user_roles WHERE username = $1', [user.username]);
+            const roleRecord = await Role.findOne({ where: { name: role }, transaction });
+            if (roleRecord) {
+                await db.sequelize.query('DELETE FROM user_roles WHERE username = $1', {
+                    bind: [user.username],
+                    transaction
+                });
                 const newUsername = username || user.username;
 
-                await client.query(
+                await db.sequelize.query(
                     'INSERT INTO user_roles (username, role_id, created_at, updated_at) VALUES ($1, $2, NOW(), NOW())',
-                    [newUsername, roleId]
+                    {
+                        bind: [newUsername, roleRecord.id],
+                        transaction
+                    }
                 );
             }
         }
 
-        await client.query('COMMIT');
+        await transaction.commit();
 
         res.status(200).json({
             success: true,
@@ -325,49 +323,41 @@ const updateUser = async (req, res) => {
         });
 
     } catch (error) {
-        await client.query('ROLLBACK');
+        await transaction.rollback();
         console.error('Error al actualizar usuario:', error);
         res.status(500).json({
             success: false,
             message: 'Error al actualizar usuario',
             error: error.message
         });
-    } finally {
-        client.release();
     }
 };
 
 const deleteUser = async (req, res) => {
-    const client = await db.connect();
+    const transaction = await db.sequelize.transaction();
     try {
         const { id } = req.params;
 
-        await client.query('BEGIN');
+        const user = await User.findByPk(id, { transaction });
 
-        const userResult = await client.query('SELECT * FROM users WHERE id = $1', [id]);
-
-        if (userResult.rows.length === 0) {
-            await client.query('ROLLBACK');
+        if (!user) {
+            await transaction.rollback();
             return res.status(404).json({
                 success: false,
                 message: 'Usuario no encontrado'
             });
         }
 
-        const user = userResult.rows[0];
+        await PasswordResetToken.destroy({ where: { user_id: id }, transaction });
 
+        await db.sequelize.query('DELETE FROM user_roles WHERE username = $1', {
+            bind: [user.username],
+            transaction
+        });
 
-        await client.query('DELETE FROM password_reset_tokens WHERE user_id = $1', [id]);
+        await user.destroy({ transaction });
 
-
-
-
-        await client.query('DELETE FROM user_roles WHERE username = $1', [user.username]);
-
-
-        await client.query('DELETE FROM users WHERE id = $1', [id]);
-
-        await client.query('COMMIT');
+        await transaction.commit();
 
         res.status(200).json({
             success: true,
@@ -375,15 +365,13 @@ const deleteUser = async (req, res) => {
         });
 
     } catch (error) {
-        await client.query('ROLLBACK');
+        await transaction.rollback();
         console.error('Error al eliminar usuario:', error);
         res.status(500).json({
             success: false,
             message: 'Error al eliminar usuario',
             error: error.message
         });
-    } finally {
-        client.release();
     }
 };
 
