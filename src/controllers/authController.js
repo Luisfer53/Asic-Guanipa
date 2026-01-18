@@ -81,7 +81,15 @@ const login = async (req, res) => {
     try {
         const { email, password } = req.body;
 
-        const user = await User.findOne({ where: { email } });
+        const user = await User.findOne({
+            where: { email },
+            include: [{
+                model: Role,
+                as: 'roles',
+                attributes: ['name'],
+                through: { attributes: [] }
+            }]
+        });
 
         if (!user) {
             return res.status(401).json({
@@ -112,7 +120,9 @@ const login = async (req, res) => {
                 user: {
                     id: user.id,
                     username: user.username,
-                    email: user.email
+
+                    email: user.email,
+                    roles: user.roles ? user.roles.map(role => role.name) : []
                 },
                 token
             }
@@ -245,7 +255,13 @@ const resetPassword = async (req, res) => {
 const getProfile = async (req, res) => {
     try {
         const user = await User.findByPk(req.user.id, {
-            attributes: ['id', 'username', 'email', 'createdAt', 'updatedAt']
+            attributes: ['id', 'username', 'email', 'createdAt', 'updatedAt'],
+            include: [{
+                model: Role,
+                as: 'roles',
+                attributes: ['name'],
+                through: { attributes: [] }
+            }]
         });
 
         if (!user) {
@@ -255,9 +271,12 @@ const getProfile = async (req, res) => {
             });
         }
 
+        const userData = user.toJSON();
+        userData.roles = user.roles ? user.roles.map(role => role.name) : [];
+
         res.status(200).json({
             success: true,
-            data: user
+            data: userData
         });
     } catch (error) {
         console.error('Error al obtener perfil:', error);
