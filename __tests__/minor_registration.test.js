@@ -28,7 +28,7 @@ describe('Minor Patient Registration Test', () => {
         ], { ignoreDuplicates: true });
 
         await db.sequelize.query(`
-            INSERT INTO user_roles (username, role_id) VALUES ('admin', 1) ON CONFLICT DO NOTHING;
+            INSERT INTO user_roles(username, role_id, created_at, updated_at) VALUES('admin', 1, NOW(), NOW()) ON CONFLICT DO NOTHING;
         `);
 
         const loginRes = await request(app)
@@ -47,7 +47,7 @@ describe('Minor Patient Registration Test', () => {
     test('Should register minor without cedula but with representative', async () => {
         const res = await request(app)
             .post('/api/pacientes')
-            .set('Authorization', `Bearer ${token}`)
+            .set('Authorization', `Bearer ${token} `)
             .send({
                 nombre: 'Baby',
                 apellido: 'Minor',
@@ -70,7 +70,7 @@ describe('Minor Patient Registration Test', () => {
     test('Should fail to register minor without representative', async () => {
         const res = await request(app)
             .post('/api/pacientes')
-            .set('Authorization', `Bearer ${token}`)
+            .set('Authorization', `Bearer ${token} `)
             .send({
                 nombre: 'Baby',
                 apellido: 'Fail',
@@ -87,7 +87,7 @@ describe('Minor Patient Registration Test', () => {
     test('Should fail to register adult without cedula', async () => {
         const res = await request(app)
             .post('/api/pacientes')
-            .set('Authorization', `Bearer ${token}`)
+            .set('Authorization', `Bearer ${token} `)
             .send({
                 nombre: 'Adult',
                 apellido: 'Fail',
@@ -104,7 +104,7 @@ describe('Minor Patient Registration Test', () => {
     test('Should register adult with cedula', async () => {
         const res = await request(app)
             .post('/api/pacientes')
-            .set('Authorization', `Bearer ${token}`)
+            .set('Authorization', `Bearer ${token} `)
             .send({
                 nombre: 'Adult',
                 apellido: 'Success',

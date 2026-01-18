@@ -25,7 +25,7 @@ describe('Report Stats Test', () => {
 
 
         await db.sequelize.query(`
-            INSERT INTO user_roles (username, role_id) VALUES ('admin', 1) ON CONFLICT DO NOTHING;
+            INSERT INTO user_roles(username, role_id, created_at, updated_at) VALUES('admin', 1, NOW(), NOW()) ON CONFLICT DO NOTHING;
         `);
 
         const loginRes = await request(app)
@@ -46,7 +46,7 @@ describe('Report Stats Test', () => {
 
         await request(app)
             .post('/api/pacientes')
-            .set('Authorization', `Bearer ${token}`)
+            .set('Authorization', `Bearer ${token} `)
             .send({
                 nombre: 'Juan',
                 apellido: 'Perez',
@@ -60,7 +60,7 @@ describe('Report Stats Test', () => {
 
         await request(app)
             .post('/api/pacientes')
-            .set('Authorization', `Bearer ${token}`)
+            .set('Authorization', `Bearer ${token} `)
             .send({
                 nombre: 'Juan',
                 apellido: 'Perez',
@@ -74,7 +74,7 @@ describe('Report Stats Test', () => {
 
         await request(app)
             .post('/api/pacientes')
-            .set('Authorization', `Bearer ${token}`)
+            .set('Authorization', `Bearer ${token} `)
             .send({
                 nombre: 'Maria',
                 apellido: 'Gomez',
@@ -88,7 +88,7 @@ describe('Report Stats Test', () => {
 
         const res = await request(app)
             .get('/api/reportes?fecha=2023-10-01')
-            .set('Authorization', `Bearer ${token}`);
+            .set('Authorization', `Bearer ${token} `);
 
         expect(res.statusCode).toBe(200);
 
