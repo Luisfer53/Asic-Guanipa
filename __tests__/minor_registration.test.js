@@ -6,16 +6,16 @@ describe('Minor Patient Registration Test', () => {
     let token = '';
 
     beforeAll(async () => {
-        await db.sequelize.sync({ alter: true }); 
+        await db.sequelize.sync({ alter: true });
 
-        
+
         const bcrypt = require('bcryptjs');
         const hashedPassword = await bcrypt.hash('password123', 10);
 
-        
-        let adminUser = await db.users.findOne({ where: { email: 'admin@test.com' } });
+
+        let adminUser = await db.User.findOne({ where: { email: 'admin@test.com' } });
         if (!adminUser) {
-            adminUser = await db.users.create({
+            adminUser = await db.User.create({
                 username: 'admin',
                 email: 'admin@test.com',
                 password: hashedPassword
@@ -51,8 +51,8 @@ describe('Minor Patient Registration Test', () => {
             .send({
                 nombre: 'Baby',
                 apellido: 'Minor',
-                
-                fecha_nacimiento: '2023-01-01', 
+
+                fecha_nacimiento: '2023-01-01',
                 sexo: 'M',
                 fecha: '2024-01-01',
                 nombre_representante: 'Papa',
@@ -77,7 +77,7 @@ describe('Minor Patient Registration Test', () => {
                 fecha_nacimiento: '2023-01-01',
                 sexo: 'F',
                 fecha: '2024-01-01'
-                
+
             });
 
         expect(res.statusCode).toBe(400);
@@ -91,8 +91,8 @@ describe('Minor Patient Registration Test', () => {
             .send({
                 nombre: 'Adult',
                 apellido: 'Fail',
-                
-                fecha_nacimiento: '1990-01-01', 
+
+                fecha_nacimiento: '1990-01-01',
                 sexo: 'M',
                 fecha: '2024-01-01'
             });

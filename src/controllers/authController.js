@@ -2,9 +2,9 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const db = require('../models');
-const User = db.users;
-const Role = db.role;
-const PasswordResetToken = db.password_reset_tokens;
+const User = db.User;
+const Role = db.Role;
+const PasswordResetToken = db.PasswordResetToken;
 const nodemailer = require('nodemailer');
 
 const transporter = nodemailer.createTransport({
@@ -63,7 +63,7 @@ const register = async (req, res) => {
                     id: user.id,
                     username: user.username,
                     email: user.email,
-                    created_at: user.created_at
+                    created_at: user.createdAt
                 }
             }
         });
@@ -245,7 +245,7 @@ const resetPassword = async (req, res) => {
 const getProfile = async (req, res) => {
     try {
         const user = await User.findByPk(req.user.id, {
-            attributes: ['id', 'username', 'email', 'created_at', 'updated_at']
+            attributes: ['id', 'username', 'email', 'createdAt', 'updatedAt']
         });
 
         if (!user) {

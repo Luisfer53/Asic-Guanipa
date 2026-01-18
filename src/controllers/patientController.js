@@ -2,7 +2,7 @@ const db = require('../models');
 const { Op } = require('sequelize');
 const Paciente = db.Paciente;
 const AtencionDiaria = db.AtencionDiaria;
-const User = db.users;
+const User = db.User;
 
 const createPatient = async (req, res) => {
     const transaction = await db.sequelize.transaction();
@@ -11,7 +11,7 @@ const createPatient = async (req, res) => {
             nombre_representante, apellido_representante, cedula_representante, telefono_representante } = req.body;
         const id_usuario_registra = req.user.id;
 
-        
+
         let edad_atencion = edad;
         if (fecha_nacimiento) {
             const dob = new Date(fecha_nacimiento);
@@ -24,7 +24,7 @@ const createPatient = async (req, res) => {
             edad_atencion = age;
         }
 
-        
+
         if (edad_atencion === undefined || edad_atencion === null) {
             await transaction.rollback();
             return res.status(400).json({ success: false, message: 'Debe proporcionar edad o fecha de nacimiento' });
@@ -32,7 +32,7 @@ const createPatient = async (req, res) => {
 
         const isMinor = edad_atencion < 18;
 
-        
+
         if (!nombre || !apellido || !sexo || !fecha) {
             await transaction.rollback();
             return res.status(400).json({
@@ -42,7 +42,7 @@ const createPatient = async (req, res) => {
         }
 
         if (isMinor) {
-            
+
             if (!nombre_representante || !apellido_representante || !cedula_representante || !telefono_representante) {
                 await transaction.rollback();
                 return res.status(400).json({
@@ -51,7 +51,7 @@ const createPatient = async (req, res) => {
                 });
             }
         } else {
-            
+
             if (!cedula) {
                 await transaction.rollback();
                 return res.status(400).json({
@@ -61,32 +61,32 @@ const createPatient = async (req, res) => {
             }
         }
 
-        
+
         let patient;
 
-        
+
         if (cedula) {
             patient = await Paciente.findOne({ where: { cedula }, transaction });
         }
 
         if (!patient) {
-            
+
             patient = await Paciente.create({
                 nombre,
                 apellido,
-                cedula: cedula || null, 
+                cedula: cedula || null,
                 fecha_nacimiento: fecha_nacimiento || null,
                 sexo,
                 telefono,
                 direccion,
-                
+
                 nombre_representante: isMinor ? nombre_representante : null,
                 apellido_representante: isMinor ? apellido_representante : null,
                 cedula_representante: isMinor ? cedula_representante : null,
                 telefono_representante: isMinor ? telefono_representante : null
             }, { transaction });
         } else {
-            
+
             const updateData = { telefono, direccion };
             if (isMinor) {
                 updateData.nombre_representante = nombre_representante;
@@ -97,7 +97,7 @@ const createPatient = async (req, res) => {
             await patient.update(updateData, { transaction });
         }
 
-        
+
         const newAttention = await AtencionDiaria.create({
             paciente_id: patient.id,
             diagnostico,
@@ -142,8 +142,8 @@ const getPatients = async (req, res) => {
                 {
                     model: Paciente,
                     as: 'paciente',
-                    where: wherePatient, 
-                    required: !!cedula 
+                    where: wherePatient,
+                    required: !!cedula
                 },
                 {
                     model: User,
@@ -172,7 +172,7 @@ const getPatientHistory = async (req, res) => {
     try {
         const { cedula } = req.params;
 
-        
+
         const patient = await Paciente.findOne({ where: { cedula } });
 
         if (!patient) {
@@ -215,10 +215,10 @@ const getPatientHistory = async (req, res) => {
 const updatePatient = async (req, res) => {
     const transaction = await db.sequelize.transaction();
     try {
-        const { id } = req.params; 
-        
-        
-        
+        const { id } = req.params;
+
+
+
 
         const updateData = req.body;
 
@@ -232,18 +232,18 @@ const updatePatient = async (req, res) => {
             });
         }
 
-        
+
         if (updateData.diagnostico) attention.diagnostico = updateData.diagnostico;
         if (updateData.fecha) attention.fecha = updateData.fecha;
-        if (updateData.edad) attention.edad_atencion = updateData.edad; 
+        if (updateData.edad) attention.edad_atencion = updateData.edad;
 
         await attention.save({ transaction });
 
-        
+
         const patientFields = ['nombre', 'apellido', 'sexo', 'telefono', 'direccion', 'cedula', 'fecha_nacimiento'];
         let patientUpdated = false;
 
-        
+
         for (const field of patientFields) {
             if (updateData[field] !== undefined) {
                 attention.paciente[field] = updateData[field];
@@ -275,7 +275,7 @@ const updatePatient = async (req, res) => {
 
 const deletePatient = async (req, res) => {
     try {
-        const { id } = req.params; 
+        const { id } = req.params;
 
         const record = await AtencionDiaria.findByPk(id);
 

@@ -35,7 +35,7 @@ describe('Patient Refactor Tests', () => {
         const bcrypt = require('bcryptjs');
         const hashedPassword = await bcrypt.hash('password123', 10);
 
-        await db.users.create({
+        await db.User.create({
             username: 'admin',
             email: 'admin@test.com',
             password: hashedPassword,
@@ -54,7 +54,7 @@ describe('Patient Refactor Tests', () => {
         adminToken = loginAdmin.body.data.token;
 
 
-        await db.users.create({
+        await db.User.create({
             username: 'medico',
             email: 'medico@test.com',
             password: hashedPassword,

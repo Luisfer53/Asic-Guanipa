@@ -10,8 +10,8 @@ module.exports = (sequelize, DataTypes) => {
                 foreignKey: 'paciente_id',
                 as: 'paciente'
             });
-            
-            AtencionDiaria.belongsTo(models.users, {
+
+            AtencionDiaria.belongsTo(models.User, {
                 foreignKey: 'id_usuario_registra',
                 as: 'usuario'
             });
@@ -35,14 +35,14 @@ module.exports = (sequelize, DataTypes) => {
             allowNull: false,
             defaultValue: DataTypes.NOW
         },
-        edad_atencion: { 
+        edad_atencion: {
             type: DataTypes.INTEGER,
             allowNull: false
         },
         id_usuario_registra: {
             type: DataTypes.INTEGER,
             allowNull: false
-            
+
         }
     }, {
         sequelize,
