@@ -9,7 +9,7 @@ const YAML = require('yamljs');
 const path = require('path');
 const swaggerDocument = YAML.load(path.join(__dirname, 'swagger.yaml'));
 
-const prodUrl = 'https://asic-guanipa.online/api';
+const prodUrl = 'https://api.asic-guanipa.online/api';
 const devUrl = 'http://localhost:3000/api';
 
 swaggerDocument.servers = [{
