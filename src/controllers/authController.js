@@ -63,7 +63,7 @@ const register = async (req, res) => {
                     id: user.id,
                     username: user.username,
                     email: user.email,
-                    created_at: user.createdAt
+                    created_at: user.created_at
                 }
             }
         });
@@ -255,7 +255,7 @@ const resetPassword = async (req, res) => {
 const getProfile = async (req, res) => {
     try {
         const user = await User.findByPk(req.user.id, {
-            attributes: ['id', 'username', 'email', 'createdAt', 'updatedAt'],
+            attributes: ['id', 'username', 'email', 'created_at', 'updated_at'],
             include: [{
                 model: Role,
                 as: 'roles',

@@ -4,6 +4,8 @@ require('dotenv').config();
 
 const authRoutes = require('./src/routes/authRoutes');
 const patientRoutes = require('./src/routes/patientRoutes');
+const atencionesRoutes = require('./src/routes/atencionesRoutes');
+const inventarioRoutes = require('./src/routes/inventarioRoutes');
 const swaggerUi = require('swagger-ui-express');
 const YAML = require('yamljs');
 const path = require('path');
@@ -42,6 +44,8 @@ app.get('/', (req, res) => {
 
 app.use('/api/auth', authRoutes);
 app.use('/api', patientRoutes);
+app.use('/api', atencionesRoutes);
+app.use('/api/inventario', inventarioRoutes);
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 
 app.use((err, req, res, next) => {

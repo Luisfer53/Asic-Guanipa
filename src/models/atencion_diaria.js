@@ -15,6 +15,16 @@ module.exports = (sequelize, DataTypes) => {
                 foreignKey: 'id_usuario_registra',
                 as: 'usuario'
             });
+
+            AtencionDiaria.hasMany(models.ConsumoInsumo, {
+                foreignKey: 'id_atencion',
+                as: 'consumos'
+            });
+
+            AtencionDiaria.hasMany(models.RegistroVacunacion, {
+                foreignKey: 'id_atencion',
+                as: 'vacunaciones'
+            });
         }
     }
     AtencionDiaria.init({
@@ -49,6 +59,8 @@ module.exports = (sequelize, DataTypes) => {
         modelName: 'AtencionDiaria',
         tableName: 'atenciones_diarias',
         underscored: true,
+        createdAt: 'created_at',
+        updatedAt: 'updated_at',
     });
     return AtencionDiaria;
 };

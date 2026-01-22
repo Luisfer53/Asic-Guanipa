@@ -17,6 +17,8 @@ module.exports = (sequelize, DataTypes) => {
     modelName: 'PasswordResetToken',
     tableName: 'password_reset_tokens',
     underscored: true,
+    createdAt: 'created_at',
+    updatedAt: 'updated_at',
   });
   return PasswordResetToken;
 };

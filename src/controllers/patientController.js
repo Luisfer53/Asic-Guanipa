@@ -98,22 +98,13 @@ const createPatient = async (req, res) => {
         }
 
 
-        const newAttention = await AtencionDiaria.create({
-            paciente_id: patient.id,
-            diagnostico,
-            fecha,
-            edad_atencion,
-            id_usuario_registra
-        }, { transaction });
-
         await transaction.commit();
 
         res.status(201).json({
             success: true,
-            message: 'Paciente y atención registrados exitosamente',
+            message: 'Paciente registrado exitosamente',
             data: {
-                patient,
-                attention: newAttention
+                patient
             }
         });
     } catch (error) {

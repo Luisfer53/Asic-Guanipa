@@ -107,6 +107,33 @@ components:
         error:
           type: object
 
+    LoteInsumo:
+      type: object
+      properties:
+        id:
+          type: integer
+        id_articulo:
+          type: integer
+        numero_lote:
+          type: string
+        stock_actual:
+          type: integer
+        fecha_vencimiento:
+          type: string
+          format: date
+
+    ConsumoInsumo:
+      type: object
+      properties:
+        id:
+          type: integer
+        id_atencion:
+          type: integer
+        id_lote_insumo:
+          type: integer
+        cantidad_usada:
+          type: integer
+
 security:
   - BearerAuth: []
 
@@ -371,80 +398,8 @@ paths:
                     type: array
                     items:
                       $ref: '#/components/schemas/Attention'
-    post:
-      summary: Registrar paciente y atención
-      description: Crea un nuevo registro de paciente (si no existe) y una nueva atención (visita).
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required:
-                - nombre
-                - apellido
-                - sexo
-                - fecha
-              properties:
-                nombre:
-                  type: string
-                apellido:
-                  type: string
-                cedula:
-                  type: string
-                  description: Opcional para menores de edad.
-                fecha_nacimiento:
-                  type: string
-                  format: date
-                edad:
-                  type: integer
-                  description: Opcional si se provee fecha_nacimiento. Edad al momento de la atención.
-                sexo:
-                  type: string
-                  enum: [M, F]
-                telefono:
-                  type: string
-                direccion:
-                  type: string
-                diagnostico:
-                  type: string
-                fecha:
-                  type: string
-                  format: date
-                nombre_representante:
-                  type: string
-                  description: Requerido para menores de edad.
-                apellido_representante:
-                  type: string
-                  description: Requerido para menores de edad.
-                cedula_representante:
-                  type: string
-                  description: Requerido para menores de edad.
-                telefono_representante:
-                  type: string
-                  description: Requerido para menores de edad.
-      responses:
-        '201':
-          description: Registrado exitosamente
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  success:
-                    type: boolean
-                    example: true
-                  message:
-                    type: string
-                  data:
-                    type: object
-                    properties:
-                      patient:
-                        $ref: '#/components/schemas/Patient'
-                      attention:
-                        $ref: '#/components/schemas/Attention'
-        '400':
-          description: Datos faltantes o inválidos
+    # POST /pacientes has been REMOVED
+    # Use POST /api/atenciones/registrar-completo instead for all patient and attention registrations
 
   /pacientes/{cedula}/historial:
     get:
@@ -653,3 +608,327 @@ paths:
               schema:
                 type: string
                 format: binary
+
+
+  /atenciones/registrar-completo:
+    post:
+      summary: Registrar paciente y atención (flujo completo)
+      description: |
+        Endpoint unificado que implementa el flujo completo de registro:
+        1. Busca al paciente por cédula
+        2. Si existe, actualiza datos opcionales (teléfono, dirección, representante)
+        3. Si no existe, crea un nuevo paciente
+        4. Valida disponibilidad de stock de insumos
+        5. Registra la atención diaria
+        6. Registra el consumo de insumos (el trigger de BD deduce el stock automáticamente)
+        
+        Todo se ejecuta en una transacción atómica.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - paciente
+                - atencion
+              properties:
+                cedula:
+                  type: string
+                  description: Cédula del paciente. Obligatoria para mayores de 18 años, opcional para menores.
+                  example: "12345678"
+                paciente:
+                  type: object
+                  required:
+                    - nombre
+                    - apellido
+                    - fecha_nacimiento
+                    - sexo
+                  properties:
+                    nombre:
+                      type: string
+                      example: "Juan"
+                    apellido:
+                      type: string
+                      example: "Pérez"
+                    fecha_nacimiento:
+                      type: string
+                      format: date
+                      description: Fecha de nacimiento (obligatoria para calcular edad)
+                      example: "1990-05-15"
+                    sexo:
+                      type: string
+                      enum: [M, F]
+                      example: "M"
+                    telefono:
+                      type: string
+                      example: "04141234567"
+                    direccion:
+                      type: string
+                      example: "Calle Principal, Casa 123"
+                    nombre_representante:
+                      type: string
+                      description: Obligatorio para menores de 18 años
+                      example: "María"
+                    apellido_representante:
+                      type: string
+                      description: Obligatorio para menores de 18 años
+                      example: "González"
+                    cedula_representante:
+                      type: string
+                      description: Obligatorio para menores de 18 años
+                      example: "87654321"
+                    telefono_representante:
+                      type: string
+                      description: Obligatorio para menores de 18 años
+                      example: "04149876543"
+                atencion:
+                  type: object
+                  required:
+                    - diagnostico
+                  properties:
+                    diagnostico:
+                      type: string
+                      example: "Consulta general"
+                    fecha:
+                      type: string
+                      format: date
+                      description: Fecha de la atención (por defecto hoy)
+                      example: "2026-01-22"
+                consumos:
+                  type: array
+                  description: Lista de insumos consumidos durante la atención
+                  items:
+                    type: object
+                    required:
+                      - id_lote_insumo
+                      - cantidad_usada
+                    properties:
+                      id_lote_insumo:
+                        type: integer
+                        example: 1
+                      cantidad_usada:
+                        type: integer
+                        example: 2
+            examples:
+              paciente_nuevo_mayor:
+                summary: Paciente nuevo mayor de edad
+                value:
+                  cedula: "12345678"
+                  paciente:
+                    nombre: "Juan"
+                    apellido: "Pérez"
+                    fecha_nacimiento: "1990-05-15"
+                    sexo: "M"
+                    telefono: "04141234567"
+                    direccion: "Calle Principal"
+                  atencion:
+                    diagnostico: "Consulta general"
+                    fecha: "2026-01-22"
+                  consumos:
+                    - id_lote_insumo: 1
+                      cantidad_usada: 2
+              paciente_existente:
+                summary: Paciente existente (actualiza datos)
+                value:
+                  cedula: "12345678"
+                  paciente:
+                    nombre: "Juan"
+                    apellido: "Pérez"
+                    fecha_nacimiento: "1990-05-15"
+                    sexo: "M"
+                    telefono: "04149999999"
+                    direccion: "Nueva dirección"
+                  atencion:
+                    diagnostico: "Control de seguimiento"
+                  consumos: []
+              paciente_menor:
+                summary: Paciente menor de edad
+                value:
+                  paciente:
+                    nombre: "Carlos"
+                    apellido: "Rodríguez"
+                    fecha_nacimiento: "2015-03-10"
+                    sexo: "M"
+                    nombre_representante: "María"
+                    apellido_representante: "González"
+                    cedula_representante: "87654321"
+                    telefono_representante: "04149876543"
+                  atencion:
+                    diagnostico: "Consulta pediátrica"
+                  consumos:
+                    - id_lote_insumo: 2
+                      cantidad_usada: 1
+      responses:
+        '201':
+          description: Paciente y atención registrados exitosamente
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Paciente y atención registrados exitosamente"
+                  data:
+                    type: object
+                    properties:
+                      paciente:
+                        $ref: '#/components/schemas/Patient'
+                      atencion:
+                        $ref: '#/components/schemas/Attention'
+                      paciente_existia:
+                        type: boolean
+                        description: Indica si el paciente ya existía en la base de datos
+                        example: false
+        '400':
+          description: Error de validación o stock insuficiente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                campos_faltantes:
+                  summary: Campos obligatorios faltantes
+                  value:
+                    success: false
+                    message: "Nombre, apellido y sexo son obligatorios"
+                stock_insuficiente:
+                  summary: Stock insuficiente
+                  value:
+                    success: false
+                    message: "Stock insuficiente para el lote ABC123. Disponible: 5, Solicitado: 10"
+                menor_sin_representante:
+                  summary: Menor sin datos de representante
+                  value:
+                    success: false
+                    message: "Para menores de edad, los datos del representante son obligatorios"
+                mayor_sin_cedula:
+                  summary: Mayor de edad sin cédula
+                  value:
+                    success: false
+                    message: "La cédula es obligatoria para mayores de edad"
+        '404':
+          description: Lote de insumo no encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                success: false
+                message: "Lote con ID 999 no encontrado."
+
+  # POST /atenciones has been REMOVED
+  # Use POST /api/atenciones/registrar-completo instead for all patient and attention registrations
+
+  /inventario/articulos:
+    post:
+      summary: Registrar artículo médico
+      description: Registra un nuevo artículo médico en el inventario. Este artículo puede luego ser usado para crear lotes.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - nombre_articulo
+                - unidad_medida
+              properties:
+                nombre_articulo:
+                  type: string
+                  description: Nombre del artículo médico
+                  example: "Jeringa 10ml"
+                unidad_medida:
+                  type: string
+                  description: Unidad de medida del artículo
+                  example: "unidad"
+      responses:
+        '201':
+          description: Artículo registrado exitosamente
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Artículo médico registrado exitosamente"
+                  data:
+                    type: object
+                    properties:
+                      id:
+                        type: integer
+                        example: 1
+                      nombre_articulo:
+                        type: string
+                        example: "Jeringa 10ml"
+                      unidad_medida:
+                        type: string
+                        example: "unidad"
+        '400':
+          description: Error de validación o artículo duplicado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                campos_faltantes:
+                  summary: Campos obligatorios faltantes
+                  value:
+                    success: false
+                    message: "Nombre del artículo y unidad de medida son obligatorios"
+                articulo_duplicado:
+                  summary: Artículo ya existe
+                  value:
+                    success: false
+                    message: "Ya existe un artículo con ese nombre"
+
+  /inventario/lotes:
+    post:
+      summary: Registrar lote de insumos
+      description: Registra un nuevo lote de insumos médicos.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - id_articulo
+                - numero_lote
+                - stock_actual
+                - fecha_vencimiento
+              properties:
+                id_articulo:
+                  type: integer
+                numero_lote:
+                  type: string
+                stock_actual:
+                  type: integer
+                fecha_vencimiento:
+                  type: string
+                  format: date
+      responses:
+        '201':
+          description: Lote registrado exitosamente
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                  data:
+                    $ref: '#/components/schemas/LoteInsumo'
+        '400':
+          description: Error de validación (fecha vencida, etc.)

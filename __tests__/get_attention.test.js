@@ -9,16 +9,45 @@ describe('Get Attention By ID Test', () => {
     beforeAll(async () => {
         await db.sequelize.sync({ alter: true });
 
-        
+        const bcrypt = require('bcryptjs');
+        const hashedPassword = await bcrypt.hash('password123', 10);
+
+        // Ensure Admin user exists
+        let adminUser = await db.User.findOne({ where: { email: 'admin@test.com' } });
+        if (!adminUser) {
+            adminUser = await db.User.create({
+                username: 'admin',
+                email: 'admin@test.com',
+                password: hashedPassword
+            });
+        }
+
+        // Ensure Roles exist
+        await db.Role.bulkCreate([
+            { id: 1, name: 'Admin' },
+            { id: 2, name: 'Medico' }
+        ], { ignoreDuplicates: true });
+
+        // Assign Admin role
+        await db.sequelize.query(`
+            INSERT INTO user_roles(username, role_id, created_at, updated_at) 
+            VALUES('admin', 1, NOW(), NOW()) 
+            ON CONFLICT DO NOTHING;
+        `);
+
         const loginRes = await request(app)
             .post('/api/auth/login')
             .send({
                 email: 'admin@test.com',
                 password: 'password123'
             });
+
+        if (!loginRes.body.success) {
+            console.log('Login failed:', loginRes.body);
+        }
         token = loginRes.body.data.token;
 
-        
+
         const createRes = await request(app)
             .post('/api/pacientes')
             .set('Authorization', `Bearer ${token}`)
@@ -35,7 +64,7 @@ describe('Get Attention By ID Test', () => {
         if (createRes.body.success) {
             attentionId = createRes.body.data.attention.id;
         } else {
-            
+
             const existing = await db.AtencionDiaria.findOne();
             if (existing) attentionId = existing.id;
         }

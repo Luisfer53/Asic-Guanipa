@@ -47,7 +47,7 @@ describe('Minor Patient Registration Test', () => {
     test('Should register minor without cedula but with representative', async () => {
         const res = await request(app)
             .post('/api/pacientes')
-            .set('Authorization', `Bearer ${token} `)
+            .set('Authorization', `Bearer ${token}`)
             .send({
                 nombre: 'Baby',
                 apellido: 'Minor',
@@ -70,7 +70,7 @@ describe('Minor Patient Registration Test', () => {
     test('Should fail to register minor without representative', async () => {
         const res = await request(app)
             .post('/api/pacientes')
-            .set('Authorization', `Bearer ${token} `)
+            .set('Authorization', `Bearer ${token}`)
             .send({
                 nombre: 'Baby',
                 apellido: 'Fail',
@@ -87,7 +87,7 @@ describe('Minor Patient Registration Test', () => {
     test('Should fail to register adult without cedula', async () => {
         const res = await request(app)
             .post('/api/pacientes')
-            .set('Authorization', `Bearer ${token} `)
+            .set('Authorization', `Bearer ${token}`)
             .send({
                 nombre: 'Adult',
                 apellido: 'Fail',
