@@ -58,12 +58,10 @@ jobs:
       - name: Install dependencies
         run: npm install
 
-      - name: Adding Path
+      - name: Setup Database
         run: |
-          apt install postgres-client -y |
-          sleep 10 |
-          npx sequelize db:migrate || exit 1 |
-          npx sequelize db:seed:all || exit 1
+          npx sequelize-cli db:migrate --env test
+          npx sequelize-cli db:seed:all --env test
 
       - name: Run Jest tests
-        run: npx jest --runInBand --coverage
+        run: DB_HOST=localhost npx jest --runInBand --coverage
