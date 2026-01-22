@@ -57,10 +57,8 @@ module.exports = (sequelize, DataTypes) => {
     }, {
         sequelize,
         modelName: 'AtencionDiaria',
-        tableName: 'atenciones_diarias',
         underscored: true,
-        createdAt: 'created_at',
-        updatedAt: 'updated_at',
+        timestamps: true
     });
     return AtencionDiaria;
 };

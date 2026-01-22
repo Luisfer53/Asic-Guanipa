@@ -46,7 +46,7 @@ module.exports = (sequelize, DataTypes) => {
         modelName: 'LoteInsumo',
         tableName: 'lotes_insumos',
         underscored: true,
-        timestamps: false // Strict schema adherence
+        timestamps: true
     });
     return LoteInsumo;
 };

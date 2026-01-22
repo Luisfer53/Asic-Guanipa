@@ -37,7 +37,7 @@ module.exports = (sequelize, DataTypes) => {
         modelName: 'RegistroVacunacion',
         tableName: 'registro_vacunacion',
         underscored: true,
-        timestamps: false
+        timestamps: true
     });
     return RegistroVacunacion;
 };

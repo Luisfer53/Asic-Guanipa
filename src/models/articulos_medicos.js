@@ -25,9 +25,7 @@ module.exports = (sequelize, DataTypes) => {
         modelName: 'ArticuloMedico',
         tableName: 'articulos_medicos',
         underscored: true,
-        createdAt: 'created_at',
-        updatedAt: 'updated_at',
-        timestamps: true // Enabling timestamps since we are standardizing
+        timestamps: true
     });
     return ArticuloMedico;
 };
