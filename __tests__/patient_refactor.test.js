@@ -8,7 +8,6 @@ describe('Patient Refactor Tests', () => {
     let medicoToken;
 
     beforeAll(async () => {
-
         process.env.NODE_ENV = 'test';
         await db.sequelize.sync({ force: true });
 

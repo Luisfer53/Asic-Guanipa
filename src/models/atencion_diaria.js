@@ -57,6 +57,7 @@ module.exports = (sequelize, DataTypes) => {
     }, {
         sequelize,
         modelName: 'AtencionDiaria',
+        tableName: 'atenciones_diarias',
         underscored: true,
         timestamps: true
     });
