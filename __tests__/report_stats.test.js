@@ -44,45 +44,64 @@ describe('Report Stats Test', () => {
 
     test('Should count unique patients in stats', async () => {
 
+
         await request(app)
-            .post('/api/pacientes')
+            .post('/api/atenciones/registrar-completo')
             .set('Authorization', `Bearer ${token} `)
             .send({
-                nombre: 'Juan',
-                apellido: 'Perez',
                 cedula: '111111',
-                sexo: 'M',
-                fecha: '2023-10-01',
-                edad: 30,
-                diagnostico: 'Gripe'
+                paciente: {
+                    nombre: 'Juan',
+                    apellido: 'Perez',
+                    sexo: 'M',
+                    fecha_nacimiento: '1993-01-01', // Approx 30 years ago
+                    telefono: '555-0001',
+                    direccion: 'Calle Test 1'
+                },
+                atencion: {
+                    diagnostico: 'Gripe',
+                    fecha: '2023-10-01'
+                }
             });
 
 
         await request(app)
-            .post('/api/pacientes')
+            .post('/api/atenciones/registrar-completo')
             .set('Authorization', `Bearer ${token} `)
             .send({
-                nombre: 'Juan',
-                apellido: 'Perez',
                 cedula: '111111',
-                sexo: 'M',
-                fecha: '2023-10-01',
-                edad: 30,
-                diagnostico: 'Revision'
+                paciente: {
+                    nombre: 'Juan',
+                    apellido: 'Perez',
+                    sexo: 'M',
+                    fecha_nacimiento: '1993-01-01',
+                    telefono: '555-0001',
+                    direccion: 'Calle Test 1'
+                },
+                atencion: {
+                    diagnostico: 'Revision',
+                    fecha: '2023-10-01'
+                }
             });
 
 
         await request(app)
-            .post('/api/pacientes')
+            .post('/api/atenciones/registrar-completo')
             .set('Authorization', `Bearer ${token} `)
             .send({
-                nombre: 'Maria',
-                apellido: 'Gomez',
                 cedula: '222222',
-                sexo: 'F',
-                fecha: '2023-10-01',
-                edad: 25,
-                diagnostico: 'Dolor'
+                paciente: {
+                    nombre: 'Maria',
+                    apellido: 'Gomez',
+                    sexo: 'F',
+                    fecha_nacimiento: '1998-01-01', // Approx 25 years ago
+                    telefono: '555-0002',
+                    direccion: 'Calle Test 2'
+                },
+                atencion: {
+                    diagnostico: 'Dolor',
+                    fecha: '2023-10-01'
+                }
             });
 
 

@@ -8,17 +8,12 @@ describe('Patient Refactor Tests', () => {
     let medicoToken;
 
     beforeAll(async () => {
-        process.env.NODE_ENV = 'test';
         await db.sequelize.sync({ force: true });
-
-
         const Role = db.Role;
         await Role.bulkCreate([
             { name: 'Admin', created_at: new Date(), updated_at: new Date() },
             { name: 'Medico', created_at: new Date(), updated_at: new Date() }
         ]);
-
-
         await db.sequelize.query('DROP TABLE IF EXISTS user_roles');
         await db.sequelize.query(`
             CREATE TABLE IF NOT EXISTS user_roles (
@@ -29,11 +24,8 @@ describe('Patient Refactor Tests', () => {
                 PRIMARY KEY (username, role_id)
             );
         `);
-
-
         const bcrypt = require('bcryptjs');
         const hashedPassword = await bcrypt.hash('password123', 10);
-
         await db.User.create({
             username: 'admin',
             email: 'admin@test.com',
@@ -41,18 +33,13 @@ describe('Patient Refactor Tests', () => {
             created_at: new Date(),
             updated_at: new Date()
         });
-
-
         const adminRole = await db.Role.findOne({ where: { name: 'Admin' } });
         await db.sequelize.query(`INSERT INTO user_roles (username, role_id, created_at, updated_at) VALUES ('admin', ${adminRole.id}, NOW(), NOW())`);
-
         const loginAdmin = await request(app).post('/api/auth/login').send({
             email: 'admin@test.com',
             password: 'password123'
         });
         adminToken = loginAdmin.body.data.token;
-
-
         await db.User.create({
             username: 'medico',
             email: 'medico@test.com',
@@ -60,11 +47,8 @@ describe('Patient Refactor Tests', () => {
             created_at: new Date(),
             updated_at: new Date()
         });
-
-
         const medicoRole = await db.Role.findOne({ where: { name: 'Medico' } });
         await db.sequelize.query(`INSERT INTO user_roles (username, role_id, created_at, updated_at) VALUES ('medico', ${medicoRole.id}, NOW(), NOW())`);
-
         const loginMedico = await request(app).post('/api/auth/login').send({
             email: 'medico@test.com',
             password: 'password123'
@@ -77,7 +61,7 @@ describe('Patient Refactor Tests', () => {
         await db.sequelize.close();
     });
 
-    test('Should register a new patient and attention record', async () => {
+    test('Should register a new patient', async () => {
         const res = await request(app)
             .post('/api/pacientes')
             .set('Authorization', `Bearer ${medicoToken}`)
@@ -86,9 +70,7 @@ describe('Patient Refactor Tests', () => {
                 apellido: 'Perez',
                 cedula: '12345678',
                 sexo: 'M',
-                fecha: '2023-10-27',
                 fecha_nacimiento: '1990-01-01',
-                diagnostico: 'Gripe',
                 telefono: '555-1234',
                 direccion: 'Calle Falsa 123'
             });
@@ -96,17 +78,12 @@ describe('Patient Refactor Tests', () => {
         expect(res.statusCode).toBe(201);
         expect(res.body.success).toBe(true);
         expect(res.body.data.patient.cedula).toBe('12345678');
-        expect(res.body.data.attention.diagnostico).toBe('Gripe');
-
 
         const patient = await db.Paciente.findOne({ where: { cedula: '12345678' } });
         expect(patient).toBeTruthy();
-        const attention = await db.AtencionDiaria.findOne({ where: { paciente_id: patient.id } });
-        expect(attention).toBeTruthy();
-        expect(attention.edad_atencion).toBeGreaterThan(30);
     });
 
-    test('Should register a second attention for existing patient', async () => {
+    test('Should update existing patient info on register if already exists', async () => {
         const res = await request(app)
             .post('/api/pacientes')
             .set('Authorization', `Bearer ${medicoToken}`)
@@ -115,16 +92,14 @@ describe('Patient Refactor Tests', () => {
                 apellido: 'Perez',
                 cedula: '12345678',
                 sexo: 'M',
-                fecha: '2023-11-01',
-                edad: 34,
-                diagnostico: 'Control'
+                fecha_nacimiento: '1990-01-01',
+                telefono: '555-9999',
+                direccion: 'Nueva Direccion'
             });
 
         expect(res.statusCode).toBe(201);
-        expect(res.body.data.attention.diagnostico).toBe('Control');
-
-        const count = await db.AtencionDiaria.count({ where: { paciente_id: (await db.Paciente.findOne({ where: { cedula: '12345678' } })).id } });
-        expect(count).toBe(2);
+        const patient = await db.Paciente.findOne({ where: { cedula: '12345678' } });
+        expect(patient.telefono).toBe('555-9999');
     });
 
     test('Should fail if required fields are missing', async () => {
@@ -145,9 +120,7 @@ describe('Patient Refactor Tests', () => {
                 nombre: 'Pedrito',
                 apellido: 'Gomez',
                 sexo: 'M',
-                fecha: '2023-11-01',
                 fecha_nacimiento: '2015-01-01',
-                diagnostico: 'Fiebre',
                 nombre_representante: 'Maria Gomez',
                 apellido_representante: 'Gomez',
                 cedula_representante: 'V-12345678',
@@ -168,9 +141,7 @@ describe('Patient Refactor Tests', () => {
                 nombre: 'Pedrito',
                 apellido: 'Gomez',
                 sexo: 'M',
-                fecha: '2023-11-01',
-                fecha_nacimiento: '2015-01-01',
-                diagnostico: 'Fiebre'
+                fecha_nacimiento: '2015-01-01'
             });
 
         expect(res.statusCode).toBe(400);
@@ -185,9 +156,7 @@ describe('Patient Refactor Tests', () => {
                 nombre: 'Adulto',
                 apellido: 'Sin Cedula',
                 sexo: 'M',
-                fecha: '2023-11-01',
-                fecha_nacimiento: '1990-01-01',
-                diagnostico: 'Consulta'
+                fecha_nacimiento: '1990-01-01'
             });
 
         expect(res.statusCode).toBe(400);
@@ -195,6 +164,23 @@ describe('Patient Refactor Tests', () => {
     });
 
     test('Should generate report with pagination', async () => {
+        await request(app)
+            .post('/api/atenciones/registrar-completo')
+            .set('Authorization', `Bearer ${medicoToken}`)
+            .send({
+                cedula: '12345678',
+                paciente: {
+                    nombre: 'Juan',
+                    apellido: 'Perez',
+                    fecha_nacimiento: '1990-01-01',
+                    sexo: 'M'
+                },
+                atencion: {
+                    diagnostico: 'Gripe',
+                    fecha: new Date().toISOString().split('T')[0]
+                }
+            });
+
         const res = await request(app)
             .get('/api/reportes')
             .set('Authorization', `Bearer ${adminToken}`)
@@ -203,5 +189,45 @@ describe('Patient Refactor Tests', () => {
         expect(res.statusCode).toBe(200);
         expect(res.body.pagination).toBeDefined();
         expect(res.body.data.length).toBe(1);
+    });
+
+    test('Should list patients with only contact information', async () => {
+        const res = await request(app)
+            .get('/api/pacientes/contactos')
+            .set('Authorization', `Bearer ${medicoToken}`);
+
+        expect(res.statusCode).toBe(200);
+        expect(res.body.success).toBe(true);
+        expect(res.body.data.length).toBeGreaterThan(0);
+
+        const contact = res.body.data[0];
+        expect(contact).toHaveProperty('nombre');
+        expect(contact).toHaveProperty('apellido');
+        expect(contact).toHaveProperty('cedula');
+        expect(contact).toHaveProperty('telefono');
+        expect(contact).toHaveProperty('direccion');
+
+
+    });
+
+    test('Should filter patients by cedula in contact list', async () => {
+        const res = await request(app)
+            .get('/api/pacientes/contactos')
+            .set('Authorization', `Bearer ${medicoToken}`)
+            .query({ cedula: '12345678' });
+
+        expect(res.statusCode).toBe(200);
+        expect(res.body.data.length).toBe(1);
+        expect(res.body.data[0].cedula).toBe('12345678');
+    });
+
+    test('Should return empty array for non-existent cedula in contact list', async () => {
+        const res = await request(app)
+            .get('/api/pacientes/contactos')
+            .set('Authorization', `Bearer ${medicoToken}`)
+            .query({ cedula: '99999999' });
+
+        expect(res.statusCode).toBe(200);
+        expect(res.body.data.length).toBe(0);
     });
 });

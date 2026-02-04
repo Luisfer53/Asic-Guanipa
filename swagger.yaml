@@ -482,7 +482,50 @@ paths:
         '400':
           description: Error de validación o paciente ya existe
 
-    
+  /pacientes/contactos:
+    get:
+      summary: Listar contactos de pacientes
+      description: Obtiene una lista de pacientes con solo sus datos de contacto. Permite filtrar por cédula.
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: query
+          name: cedula
+          schema:
+            type: string
+          description: Filtrar por cédula (coincidencia parcial)
+      responses:
+        '200':
+          description: Lista de contactos obtenida
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: integer
+                        nombre:
+                          type: string
+                        apellido:
+                          type: string
+                        cedula:
+                          type: string
+                        telefono:
+                          type: string
+                        direccion:
+                          type: string
+        '401':
+          description: No autorizado
+        '500':
+          description: Error del servidor
 
   /pacientes/{cedula}/historial:
     get:
@@ -903,6 +946,49 @@ paths:
               example:
                 success: false
                 message: "Lote con ID 999 no encontrado."
+
+  /atenciones:
+    post:
+      summary: Registrar atención para paciente existente
+      description: Registra una nueva atención médica para un paciente que ya se encuentra en el sistema.
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - paciente_id
+                - diagnostico
+              properties:
+                paciente_id:
+                  type: integer
+                  description: ID del paciente
+                diagnostico:
+                  type: string
+                  example: "Consulta de control"
+                fecha:
+                  type: string
+                  format: date
+                  description: Fecha de la atención (por defecto hoy)
+                consumos:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      id_lote_insumo:
+                        type: integer
+                      cantidad_usada:
+                        type: integer
+      responses:
+        '201':
+          description: Atención registrada exitosamente
+        '400':
+          description: Datos inválidos o stock insuficiente
+        '404':
+          description: Paciente o lote no encontrado
 
   
   

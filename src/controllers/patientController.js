@@ -5,12 +5,9 @@ const AtencionDiaria = db.AtencionDiaria;
 const User = db.User;
 
 const createPatient = async (req, res) => {
-    const transaction = await db.sequelize.transaction();
     try {
-        const { nombre, apellido, edad, fecha_nacimiento, sexo, cedula, telefono, direccion, diagnostico, fecha,
+        const { nombre, apellido, edad, fecha_nacimiento, sexo, cedula, telefono, direccion,
             nombre_representante, apellido_representante, cedula_representante, telefono_representante } = req.body;
-        const id_usuario_registra = req.user.id;
-
 
         let edad_atencion = edad;
         if (fecha_nacimiento) {
@@ -24,36 +21,28 @@ const createPatient = async (req, res) => {
             edad_atencion = age;
         }
 
-
         if (edad_atencion === undefined || edad_atencion === null) {
-            await transaction.rollback();
             return res.status(400).json({ success: false, message: 'Debe proporcionar edad o fecha de nacimiento' });
         }
 
         const isMinor = edad_atencion < 18;
 
-
-        if (!nombre || !apellido || !sexo || !fecha) {
-            await transaction.rollback();
+        if (!nombre || !apellido || !sexo) {
             return res.status(400).json({
                 success: false,
-                message: 'Faltan campos obligatorios (nombre, apellido, sexo, fecha)'
+                message: 'Faltan campos obligatorios (nombre, apellido, sexo)'
             });
         }
 
         if (isMinor) {
-
             if (!nombre_representante || !apellido_representante || !cedula_representante || !telefono_representante) {
-                await transaction.rollback();
                 return res.status(400).json({
                     success: false,
                     message: 'Para menores de edad, los datos del representante son obligatorios'
                 });
             }
         } else {
-
             if (!cedula) {
-                await transaction.rollback();
                 return res.status(400).json({
                     success: false,
                     message: 'La cédula es obligatoria para mayores de edad'
@@ -61,16 +50,12 @@ const createPatient = async (req, res) => {
             }
         }
 
-
         let patient;
-
-
         if (cedula) {
-            patient = await Paciente.findOne({ where: { cedula }, transaction });
+            patient = await Paciente.findOne({ where: { cedula } });
         }
 
         if (!patient) {
-
             patient = await Paciente.create({
                 nombre,
                 apellido,
@@ -79,14 +64,12 @@ const createPatient = async (req, res) => {
                 sexo,
                 telefono,
                 direccion,
-
                 nombre_representante: isMinor ? nombre_representante : null,
                 apellido_representante: isMinor ? apellido_representante : null,
                 cedula_representante: isMinor ? cedula_representante : null,
                 telefono_representante: isMinor ? telefono_representante : null
-            }, { transaction });
+            });
         } else {
-
             const updateData = { telefono, direccion };
             if (isMinor) {
                 updateData.nombre_representante = nombre_representante;
@@ -94,11 +77,8 @@ const createPatient = async (req, res) => {
                 updateData.cedula_representante = cedula_representante;
                 updateData.telefono_representante = telefono_representante;
             }
-            await patient.update(updateData, { transaction });
+            await patient.update(updateData);
         }
-
-
-        await transaction.commit();
 
         res.status(201).json({
             success: true,
@@ -108,7 +88,6 @@ const createPatient = async (req, res) => {
             }
         });
     } catch (error) {
-        await transaction.rollback();
         console.error('Error creating patient record:', error);
         res.status(500).json({
             success: false,
@@ -162,10 +141,7 @@ const getPatients = async (req, res) => {
 const getPatientHistory = async (req, res) => {
     try {
         const { cedula } = req.params;
-
-
         const patient = await Paciente.findOne({ where: { cedula } });
-
         if (!patient) {
             return res.status(404).json({
                 success: false,
@@ -207,10 +183,6 @@ const updatePatient = async (req, res) => {
     const transaction = await db.sequelize.transaction();
     try {
         const { id } = req.params;
-
-
-
-
         const updateData = req.body;
 
         const attention = await AtencionDiaria.findByPk(id, { include: ['paciente'], transaction });
@@ -331,12 +303,41 @@ const getAttentionById = async (req, res) => {
     }
 };
 
+const getPatientContacts = async (req, res) => {
+    try {
+        const { cedula } = req.query;
+        const where = {};
+        if (cedula) {
+            where.cedula = { [Op.like]: `%${cedula}%` };
+        }
+
+        const patients = await Paciente.findAll({
+            where,
+            attributes: ['id', 'nombre', 'apellido', 'cedula', 'telefono', 'direccion'],
+            order: [['apellido', 'ASC'], ['nombre', 'ASC']]
+        });
+
+        res.status(200).json({
+            success: true,
+            data: patients
+        });
+    } catch (error) {
+        console.error('Error fetching patient contacts:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Error al obtener contactos de pacientes',
+            error: error.message
+        });
+    }
+};
+
 module.exports = {
     createPatient,
     getPatients,
     getPatientHistory,
     getAttentionById,
     updatePatient,
-    deletePatient
+    deletePatient,
+    getPatientContacts
 };
 

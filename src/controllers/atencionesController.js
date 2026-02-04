@@ -1,13 +1,11 @@
 const { sequelize, AtencionDiaria, ConsumoInsumo, LoteInsumo, Paciente } = require('../models');
 
-
 exports.registrarCompleto = async (req, res) => {
     const t = await sequelize.transaction();
 
     try {
         const { cedula, paciente, atencion, consumos } = req.body;
 
-        
         if (!paciente || !atencion) {
             throw new Error('Los datos del paciente y la atención son obligatorios');
         }
@@ -17,7 +15,6 @@ exports.registrarCompleto = async (req, res) => {
         const { diagnostico, fecha } = atencion;
         const id_usuario_registra = req.user ? req.user.id : null;
 
-        
         let edad_atencion;
         if (fecha_nacimiento) {
             const dob = new Date(fecha_nacimiento);
@@ -34,7 +31,6 @@ exports.registrarCompleto = async (req, res) => {
 
         const isMinor = edad_atencion < 18;
 
-        
         if (!nombre || !apellido || !sexo) {
             throw new Error('Nombre, apellido y sexo son obligatorios');
         }
@@ -49,7 +45,6 @@ exports.registrarCompleto = async (req, res) => {
             }
         }
 
-        
         let pacienteRecord = null;
         let wasExisting = false;
         if (cedula) {
@@ -57,9 +52,7 @@ exports.registrarCompleto = async (req, res) => {
             if (pacienteRecord) wasExisting = true;
         }
 
-        
         if (pacienteRecord) {
-            
             const updateData = {};
             if (telefono !== undefined) updateData.telefono = telefono;
             if (direccion !== undefined) updateData.direccion = direccion;
@@ -75,7 +68,6 @@ exports.registrarCompleto = async (req, res) => {
                 await pacienteRecord.update(updateData, { transaction: t });
             }
         } else {
-            
             pacienteRecord = await Paciente.create({
                 nombre,
                 apellido,
@@ -91,7 +83,6 @@ exports.registrarCompleto = async (req, res) => {
             }, { transaction: t });
         }
 
-        
         if (consumos && consumos.length > 0) {
             for (const consumo of consumos) {
                 const lote = await LoteInsumo.findByPk(consumo.id_lote_insumo, { transaction: t });
@@ -104,7 +95,6 @@ exports.registrarCompleto = async (req, res) => {
             }
         }
 
-        
         const nuevaAtencion = await AtencionDiaria.create({
             paciente_id: pacienteRecord.id,
             diagnostico,
@@ -113,7 +103,6 @@ exports.registrarCompleto = async (req, res) => {
             fecha: fecha || new Date()
         }, { transaction: t });
 
-        
         if (consumos && consumos.length > 0) {
             const consumosData = consumos.map(c => ({
                 id_atencion: nuevaAtencion.id,
@@ -131,8 +120,8 @@ exports.registrarCompleto = async (req, res) => {
             data: {
                 paciente: pacienteRecord,
                 atencion: nuevaAtencion,
-                patient: pacienteRecord, 
-                attention: nuevaAtencion, 
+                patient: pacienteRecord,
+                attention: nuevaAtencion,
                 paciente_existia: wasExisting
             }
         });
@@ -148,16 +137,13 @@ exports.registrarCompleto = async (req, res) => {
     }
 };
 
-
 exports.registrarPacienteLegacy = async (req, res) => {
-    
     const {
         nombre, apellido, edad, fecha_nacimiento, sexo, cedula, telefono, direccion,
         nombre_representante, apellido_representante, cedula_representante, telefono_representante,
         diagnostico, fecha
     } = req.body;
 
-    
     let final_fecha_nacimiento = fecha_nacimiento;
     if (!final_fecha_nacimiento && edad !== undefined) {
         const today = new Date();
@@ -174,18 +160,15 @@ exports.registrarPacienteLegacy = async (req, res) => {
             diagnostico: diagnostico || 'Consulta general',
             fecha: fecha || new Date()
         },
-        consumos: [] 
+        consumos: []
     };
 
     return exports.registrarCompleto(req, res);
 };
 
-
 exports.registrarAtencionLegacy = async (req, res) => {
-    
     const { paciente_id, diagnostico, edad_atencion, id_usuario_registra, consumos, fecha } = req.body;
 
-    
     try {
         const paciente = await Paciente.findByPk(paciente_id);
         if (!paciente) {

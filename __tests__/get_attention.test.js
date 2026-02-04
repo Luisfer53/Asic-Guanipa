@@ -7,12 +7,12 @@ describe('Get Attention By ID Test', () => {
     let attentionId = '';
 
     beforeAll(async () => {
-        await db.sequelize.sync({ alter: true });
+        await db.sequelize.sync({ force: true });
 
         const bcrypt = require('bcryptjs');
         const hashedPassword = await bcrypt.hash('password123', 10);
 
-        
+
         let adminUser = await db.User.findOne({ where: { email: 'admin@test.com' } });
         if (!adminUser) {
             adminUser = await db.User.create({
@@ -22,13 +22,13 @@ describe('Get Attention By ID Test', () => {
             });
         }
 
-        
+
         await db.Role.bulkCreate([
             { id: 1, name: 'Admin' },
             { id: 2, name: 'Medico' }
         ], { ignoreDuplicates: true });
 
-        
+
         await db.sequelize.query(`
             INSERT INTO user_roles(username, role_id, created_at, updated_at) 
             VALUES('admin', 1, NOW(), NOW()) 
@@ -49,16 +49,23 @@ describe('Get Attention By ID Test', () => {
 
 
         const createRes = await request(app)
-            .post('/api/pacientes')
+            .post('/api/atenciones/registrar-completo')
             .set('Authorization', `Bearer ${token}`)
             .send({
-                nombre: 'Test',
-                apellido: 'GetById',
-                cedula: '99999999',
-                sexo: 'M',
-                fecha: '2023-01-01',
-                edad: 30,
-                diagnostico: 'Test Diagnosis'
+                paciente: {
+                    nombre: 'Test',
+                    apellido: 'GetById',
+                    sexo: 'M',
+                    fecha_nacimiento: '1993-01-01',
+                    cedula: '99999999',
+                    telefono: '555-0101',
+                    direccion: 'Test Address'
+                },
+                atencion: {
+                    diagnostico: 'Test Diagnosis',
+                    fecha: '2023-01-01'
+                },
+                cedula: '99999999'
             });
 
         if (createRes.body.success) {
