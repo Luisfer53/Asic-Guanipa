@@ -23,7 +23,7 @@ async function testAPI() {
         console.log('✅ Login de Administrador exitoso');
         adminToken = response.data.token;
 
-        // Debug: Mostrar payload del token
+        
         const payload = JSON.parse(Buffer.from(adminToken.split('.')[1], 'base64').toString());
         console.log('   Token Payload:', payload);
     } catch (error) {

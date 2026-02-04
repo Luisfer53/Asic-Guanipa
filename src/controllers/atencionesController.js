@@ -1,20 +1,13 @@
 const { sequelize, AtencionDiaria, ConsumoInsumo, LoteInsumo, Paciente } = require('../models');
 
-/**
- * Unified endpoint for complete patient-attention registration
- * 1. Search patient by cedula
- * 2. Create or update patient
- * 3. Validate stock availability
- * 4. Register attention
- * 5. Register supply consumption
- */
+
 exports.registrarCompleto = async (req, res) => {
     const t = await sequelize.transaction();
 
     try {
         const { cedula, paciente, atencion, consumos } = req.body;
 
-        // Validate required fields
+        
         if (!paciente || !atencion) {
             throw new Error('Los datos del paciente y la atención son obligatorios');
         }
@@ -24,7 +17,7 @@ exports.registrarCompleto = async (req, res) => {
         const { diagnostico, fecha } = atencion;
         const id_usuario_registra = req.user ? req.user.id : null;
 
-        // Calculate age from fecha_nacimiento
+        
         let edad_atencion;
         if (fecha_nacimiento) {
             const dob = new Date(fecha_nacimiento);
@@ -41,7 +34,7 @@ exports.registrarCompleto = async (req, res) => {
 
         const isMinor = edad_atencion < 18;
 
-        // Validate required fields based on age
+        
         if (!nombre || !apellido || !sexo) {
             throw new Error('Nombre, apellido y sexo son obligatorios');
         }
@@ -56,7 +49,7 @@ exports.registrarCompleto = async (req, res) => {
             }
         }
 
-        // 1. Search for existing patient by cedula
+        
         let pacienteRecord = null;
         let wasExisting = false;
         if (cedula) {
@@ -64,9 +57,9 @@ exports.registrarCompleto = async (req, res) => {
             if (pacienteRecord) wasExisting = true;
         }
 
-        // 2. Create or update patient
+        
         if (pacienteRecord) {
-            // Update existing patient (optional fields only)
+            
             const updateData = {};
             if (telefono !== undefined) updateData.telefono = telefono;
             if (direccion !== undefined) updateData.direccion = direccion;
@@ -82,7 +75,7 @@ exports.registrarCompleto = async (req, res) => {
                 await pacienteRecord.update(updateData, { transaction: t });
             }
         } else {
-            // Create new patient
+            
             pacienteRecord = await Paciente.create({
                 nombre,
                 apellido,
@@ -98,7 +91,7 @@ exports.registrarCompleto = async (req, res) => {
             }, { transaction: t });
         }
 
-        // 3. Validate stock availability (atomic check)
+        
         if (consumos && consumos.length > 0) {
             for (const consumo of consumos) {
                 const lote = await LoteInsumo.findByPk(consumo.id_lote_insumo, { transaction: t });
@@ -111,7 +104,7 @@ exports.registrarCompleto = async (req, res) => {
             }
         }
 
-        // 4. Create attention record
+        
         const nuevaAtencion = await AtencionDiaria.create({
             paciente_id: pacienteRecord.id,
             diagnostico,
@@ -120,7 +113,7 @@ exports.registrarCompleto = async (req, res) => {
             fecha: fecha || new Date()
         }, { transaction: t });
 
-        // 5. Create supply consumption records (trigger will handle stock deduction)
+        
         if (consumos && consumos.length > 0) {
             const consumosData = consumos.map(c => ({
                 id_atencion: nuevaAtencion.id,
@@ -138,8 +131,8 @@ exports.registrarCompleto = async (req, res) => {
             data: {
                 paciente: pacienteRecord,
                 atencion: nuevaAtencion,
-                patient: pacienteRecord, // Alias para compatibilidad con tests antiguos
-                attention: nuevaAtencion, // Alias para compatibilidad con tests antiguos
+                patient: pacienteRecord, 
+                attention: nuevaAtencion, 
                 paciente_existia: wasExisting
             }
         });
@@ -155,18 +148,16 @@ exports.registrarCompleto = async (req, res) => {
     }
 };
 
-/**
- * Wrapper para compatibilidad con el endpoint antiguo POST /api/pacientes
- */
+
 exports.registrarPacienteLegacy = async (req, res) => {
-    // Mapear el body antiguo al nuevo formato
+    
     const {
         nombre, apellido, edad, fecha_nacimiento, sexo, cedula, telefono, direccion,
         nombre_representante, apellido_representante, cedula_representante, telefono_representante,
         diagnostico, fecha
     } = req.body;
 
-    // Si no hay fecha_nacimiento pero hay edad, calcular una fecha aproximada
+    
     let final_fecha_nacimiento = fecha_nacimiento;
     if (!final_fecha_nacimiento && edad !== undefined) {
         const today = new Date();
@@ -183,20 +174,18 @@ exports.registrarPacienteLegacy = async (req, res) => {
             diagnostico: diagnostico || 'Consulta general',
             fecha: fecha || new Date()
         },
-        consumos: [] // El endpoint antiguo no manejaba consumos
+        consumos: [] 
     };
 
     return exports.registrarCompleto(req, res);
 };
 
-/**
- * Wrapper para compatibilidad con el endpoint antiguo POST /api/atenciones
- */
+
 exports.registrarAtencionLegacy = async (req, res) => {
-    // Mapear el body antiguo al nuevo formato
+    
     const { paciente_id, diagnostico, edad_atencion, id_usuario_registra, consumos, fecha } = req.body;
 
-    // Buscar la cédula del paciente para usar registrarCompleto
+    
     try {
         const paciente = await Paciente.findByPk(paciente_id);
         if (!paciente) {

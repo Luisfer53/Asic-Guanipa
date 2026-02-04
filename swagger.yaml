@@ -398,8 +398,91 @@ paths:
                     type: array
                     items:
                       $ref: '#/components/schemas/Attention'
-    # POST /pacientes has been REMOVED
-    # Use POST /api/atenciones/registrar-completo instead for all patient and attention registrations
+    post:
+      summary: Registrar paciente (solo datos)
+      description: |
+        Registra un nuevo paciente en el sistema sin crear una atención médica.
+        - Para mayores de 18 años, la cédula es obligatoria.
+        - Para menores de 18 años, los datos del representante son obligatorios.
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - nombre
+                - apellido
+                - fecha_nacimiento
+                - sexo
+              properties:
+                nombre:
+                  type: string
+                apellido:
+                  type: string
+                cedula:
+                  type: string
+                  description: Obligatoria para mayores de edad
+                fecha_nacimiento:
+                  type: string
+                  format: date
+                sexo:
+                  type: string
+                  enum: [M, F]
+                telefono:
+                  type: string
+                direccion:
+                  type: string
+                nombre_representante:
+                  type: string
+                apellido_representante:
+                  type: string
+                cedula_representante:
+                  type: string
+                telefono_representante:
+                  type: string
+            examples:
+              adulto:
+                summary: Registro de adulto
+                value:
+                  nombre: "Juan"
+                  apellido: "Perez"
+                  cedula: "12345678"
+                  fecha_nacimiento: "1990-05-15"
+                  sexo: "M"
+                  telefono: "04141112233"
+                  direccion: "Calle Falsa 123"
+              menor:
+                summary: Registro de menor
+                value:
+                  nombre: "Carlitos"
+                  apellido: "Perez"
+                  fecha_nacimiento: "2015-10-20"
+                  sexo: "M"
+                  nombre_representante: "Juan"
+                  apellido_representante: "Perez"
+                  cedula_representante: "12345678"
+                  telefono_representante: "04141112233"
+      responses:
+        '201':
+          description: Paciente registrado exitosamente
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  message:
+                    type: string
+                  data:
+                    $ref: '#/components/schemas/Patient'
+        '400':
+          description: Error de validación o paciente ya existe
+
+    
 
   /pacientes/{cedula}/historial:
     get:
@@ -821,13 +904,50 @@ paths:
                 success: false
                 message: "Lote con ID 999 no encontrado."
 
-  # POST /atenciones has been REMOVED
-  # Use POST /api/atenciones/registrar-completo instead for all patient and attention registrations
+  
+  
 
   /inventario/articulos:
+    get:
+      summary: Listar artículos médicos
+      description: Obtiene la lista de todos los artículos médicos registrados en el sistema.
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Lista de artículos obtenida exitosamente
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  count:
+                    type: integer
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: integer
+                        nombre_articulo:
+                          type: string
+                        unidad_medida:
+                          type: string
+                        created_at:
+                          type: string
+                          format: date-time
+                        updated_at:
+                          type: string
+                          format: date-time
     post:
       summary: Registrar artículo médico
-      description: Registra un nuevo artículo médico en el inventario. Este artículo puede luego ser usado para crear lotes.
+      description: Registra un nuevo artículo médico en el inventario. Este artículo puede luego ser usado para crear lotes. Requiere rol Admin.
+      security:
+        - BearerAuth: []
       requestBody:
         required: true
         content:
@@ -889,11 +1009,16 @@ paths:
                   value:
                     success: false
                     message: "Ya existe un artículo con ese nombre"
+        '403':
+          description: Prohibido (Requiere rol Admin)
+
 
   /inventario/lotes:
     post:
       summary: Registrar lote de insumos
-      description: Registra un nuevo lote de insumos médicos.
+      description: Registra un nuevo lote de insumos médicos. Requiere rol Admin.
+      security:
+        - BearerAuth: []
       requestBody:
         required: true
         content:
@@ -932,3 +1057,64 @@ paths:
                     $ref: '#/components/schemas/LoteInsumo'
         '400':
           description: Error de validación (fecha vencida, etc.)
+        '403':
+          description: Prohibido (Requiere rol Admin)
+
+  /inventario:
+    get:
+      summary: Obtener inventario con alertas
+      description: Obtiene la lista de todos los lotes de insumos con alertas de stock bajo y vencimiento.
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Inventario obtenido exitosamente
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  count:
+                    type: integer
+                  data:
+                    type: array
+                    items:
+                      allOf:
+                        - $ref: '#/components/schemas/LoteInsumo'
+                        - type: object
+                          properties:
+                            articulo:
+                              type: object
+                              properties:
+                                nombre_articulo:
+                                  type: string
+                                unidad_medida:
+                                  type: string
+                            alertas:
+                              type: object
+                              properties:
+                                stock_bajo:
+                                  type: boolean
+                                proximo_vencer:
+                                  type: boolean
+                                vencido:
+                                  type: boolean
+
+  /inventario/reporte:
+    get:
+      summary: Generar reporte de inventario
+      description: Genera un archivo Excel con el estado actual del inventario y alertas.
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Reporte generado exitosamente
+          content:
+            application/vnd.openxmlformats-officedocument.spreadsheetml.sheet:
+              schema:
+                type: string
+                format: binary
+
+

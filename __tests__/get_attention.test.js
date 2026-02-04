@@ -12,7 +12,7 @@ describe('Get Attention By ID Test', () => {
         const bcrypt = require('bcryptjs');
         const hashedPassword = await bcrypt.hash('password123', 10);
 
-        // Ensure Admin user exists
+        
         let adminUser = await db.User.findOne({ where: { email: 'admin@test.com' } });
         if (!adminUser) {
             adminUser = await db.User.create({
@@ -22,13 +22,13 @@ describe('Get Attention By ID Test', () => {
             });
         }
 
-        // Ensure Roles exist
+        
         await db.Role.bulkCreate([
             { id: 1, name: 'Admin' },
             { id: 2, name: 'Medico' }
         ], { ignoreDuplicates: true });
 
-        // Assign Admin role
+        
         await db.sequelize.query(`
             INSERT INTO user_roles(username, role_id, created_at, updated_at) 
             VALUES('admin', 1, NOW(), NOW()) 

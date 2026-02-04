@@ -44,11 +44,11 @@ const register = async (req, res) => {
 
         const role = await Role.findOne({ where: { name: 'Basico' } });
         if (role) {
-            // Note: user_roles seems to be a join table without a direct model in some setups,
-            // but here we need to handle it. If there's no UserRole model, we might need a different approach.
-            // Based on previous search, there is no user_roles.js model.
-            // However, we can use raw query if needed, or better, define the association.
-            // For now, I'll use the sequelize instance to query the join table if no model exists.
+            
+            
+            
+            
+            
             await db.sequelize.query(
                 'INSERT INTO user_roles (username, role_id, created_at, updated_at) VALUES ($1, $2, NOW(), NOW())',
                 { bind: [user.username, role.id] }

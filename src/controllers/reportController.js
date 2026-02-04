@@ -13,7 +13,7 @@ const generateDailyReport = async (req, res) => {
             where.fecha = fecha;
         }
 
-        
+
         const { count, rows: attentions } = await AtencionDiaria.findAndCountAll({
             where,
             include: [
@@ -27,12 +27,12 @@ const generateDailyReport = async (req, res) => {
             order: [['fecha', 'DESC']]
         });
 
-        
-        
-        
-        
-        
-        
+
+
+
+
+
+
 
         const stats = {
             total: count,
@@ -64,9 +64,9 @@ const generateDailyReport = async (req, res) => {
         };
 
         if (formato === 'excel') {
-            
-            
-            
+
+
+
             const allAttentions = await AtencionDiaria.findAll({
                 where,
                 include: [{ model: Paciente, as: 'paciente' }],
@@ -104,7 +104,7 @@ const generateDailyReport = async (req, res) => {
                 });
             });
 
-            
+
             worksheet.addRow([]);
             worksheet.addRow(['Resumen']);
             worksheet.addRow(['Total Pacientes', stats.total]);
@@ -113,13 +113,14 @@ const generateDailyReport = async (req, res) => {
             worksheet.addRow(['Menores (<18)', stats.menores]);
             worksheet.addRow(['Mayores (>=60)', stats.mayores]);
 
+            res.setHeader('Access-Control-Expose-Headers', 'Content-Disposition');
+            res.attachment(`reporte-${fecha || 'general'}.xlsx`);
             res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-            res.setHeader('Content-Disposition', `attachment; filename=reporte-${fecha || 'general'}.xlsx`);
 
             await workbook.xlsx.write(res);
             res.end();
         } else {
-            
+
             res.status(200).json({
                 success: true,
                 fecha: fecha || 'Todos',
@@ -144,7 +145,80 @@ const generateDailyReport = async (req, res) => {
     }
 };
 
+const generateInventoryReport = async (req, res) => {
+    try {
+        const lotes = await db.LoteInsumo.findAll({
+            include: [{
+                model: db.ArticuloMedico,
+                as: 'articulo'
+            }],
+            order: [['fecha_vencimiento', 'ASC']]
+        });
+
+        const workbook = new ExcelJS.Workbook();
+        const worksheet = workbook.addWorksheet('Inventario');
+
+        worksheet.columns = [
+            { header: 'Artículo', key: 'articulo', width: 25 },
+            { header: 'ID', key: 'id', width: 10 },
+            { header: 'Lote', key: 'lote', width: 15 },
+            { header: 'Stock Actual', key: 'stock', width: 15 },
+            { header: 'Unidad', key: 'unidad', width: 15 },
+            { header: 'Fecha Vencimiento', key: 'vencimiento', width: 20 },
+            { header: 'Alertas', key: 'alertas', width: 30 }
+        ];
+
+        const today = new Date();
+        const thirtyDaysFromNow = new Date();
+        thirtyDaysFromNow.setDate(today.getDate() + 30);
+
+        lotes.forEach(lote => {
+            const fechaVencimiento = new Date(lote.fecha_vencimiento);
+            const alertas = [];
+            if (lote.stock_actual < 10) alertas.push('STOCK BAJO');
+            if (fechaVencimiento <= today) {
+                alertas.push('VENCIDO');
+            } else if (fechaVencimiento <= thirtyDaysFromNow) {
+                alertas.push('PRÓXIMO A VENCER');
+            }
+
+            const row = worksheet.addRow({
+                articulo: lote.articulo ? lote.articulo.nombre_articulo : 'N/A',
+                id: lote.id,
+                lote: lote.numero_lote,
+                stock: lote.stock_actual,
+                unidad: lote.articulo ? lote.articulo.unidad_medida : 'N/A',
+                vencimiento: lote.fecha_vencimiento,
+                alertas: alertas.join(', ')
+            });
+
+
+            if (alertas.includes('VENCIDO') || alertas.includes('STOCK BAJO')) {
+                row.getCell('alertas').font = { color: { argb: 'FFFF0000' }, bold: true };
+            } else if (alertas.includes('PRÓXIMO A VENCER')) {
+                row.getCell('alertas').font = { color: { argb: 'FFFFA500' }, bold: true };
+            }
+        });
+
+        res.setHeader('Access-Control-Expose-Headers', 'Content-Disposition');
+        res.attachment('reporte-inventario.xlsx');
+        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+
+        await workbook.xlsx.write(res);
+        res.end();
+
+    } catch (error) {
+        console.error('Error generating inventory report:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Error al generar reporte de inventario',
+            error: error.message
+        });
+    }
+};
+
 module.exports = {
-    generateDailyReport
+    generateDailyReport,
+    generateInventoryReport
 };
 

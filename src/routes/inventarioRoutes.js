@@ -1,11 +1,24 @@
 const express = require('express');
 const router = express.Router();
 const inventarioController = require('../controllers/inventarioController');
+const reportController = require('../controllers/reportController');
+const { verifyToken, isAdmin } = require('../middleware/auth');
 
-// Register medical articles
-router.post('/articulos', inventarioController.registrarArticulo);
 
-// Register batches of medical supplies
-router.post('/lotes', inventarioController.registrarLote);
+
+router.post('/articulos', [verifyToken, isAdmin], inventarioController.registrarArticulo);
+
+
+router.get('/articulos', verifyToken, inventarioController.listarArticulos);
+
+
+router.post('/lotes', [verifyToken, isAdmin], inventarioController.registrarLote);
+
+
+
+router.get('/', verifyToken, inventarioController.obtenerInventario);
+
+
+router.get('/reporte', verifyToken, reportController.generateInventoryReport);
 
 module.exports = router;

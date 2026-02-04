@@ -11,15 +11,15 @@ describe('Atenciones and Inventory Modules', () => {
     let token;
 
     beforeAll(async () => {
-        await sequelize.sync({ force: true }); // Reset DB for testing
+        await sequelize.sync({ force: true }); 
 
-        // Create Roles
+        
         await Role.bulkCreate([
             { id: 1, name: 'Admin' },
             { id: 2, name: 'Medico' }
         ]);
 
-        // Create prerequisites
+        
         const articulo = await ArticuloMedico.create({
             nombre_articulo: 'Jeringa 10ml',
             unidad_medida: 'unidad'
@@ -45,13 +45,13 @@ describe('Atenciones and Inventory Modules', () => {
         });
         userId = user.id;
 
-        // Associate user with role
+        
         await sequelize.query(
             'INSERT INTO user_roles (username, role_id, created_at, updated_at) VALUES ($1, $2, NOW(), NOW())',
-            { bind: [user.username, 2] }
+            { bind: [user.username, 1] }
         );
 
-        // Login to get token
+        
         const loginRes = await request(app)
             .post('/api/auth/login')
             .send({
@@ -120,7 +120,7 @@ describe('Atenciones and Inventory Modules', () => {
             expect(res.statusCode).toEqual(201);
             expect(res.body.success).toBe(true);
 
-            // Verify records
+            
             const atencion = await AtencionDiaria.findOne({ where: { diagnostico: 'Gripe' } });
             expect(atencion).toBeTruthy();
 
@@ -141,7 +141,7 @@ describe('Atenciones and Inventory Modules', () => {
                     consumos: [
                         {
                             id_lote_insumo: loteId,
-                            cantidad_usada: 9999 // More than available
+                            cantidad_usada: 9999 
                         }
                     ]
                 });
@@ -149,7 +149,7 @@ describe('Atenciones and Inventory Modules', () => {
             expect(res.statusCode).toEqual(400);
             expect(res.body.message).toContain('Stock insuficiente');
 
-            // Verify rollback: Atencion should not be created
+            
             const atencion = await AtencionDiaria.findOne({ where: { diagnostico: 'Fractura' } });
             expect(atencion).toBeNull();
         });
