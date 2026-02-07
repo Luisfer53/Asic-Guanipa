@@ -44,11 +44,11 @@ const register = async (req, res) => {
 
         const role = await Role.findOne({ where: { name: 'Basico' } });
         if (role) {
-            
-            
-            
-            
-            
+
+
+
+
+
             await db.sequelize.query(
                 'INSERT INTO user_roles (username, role_id, created_at, updated_at) VALUES ($1, $2, NOW(), NOW())',
                 { bind: [user.username, role.id] }
@@ -394,6 +394,39 @@ const deleteUser = async (req, res) => {
     }
 };
 
+
+const getAllUsers = async (req, res) => {
+    try {
+        const users = await User.findAll({
+            attributes: ['id', 'username', 'email', 'created_at', 'updated_at'],
+            include: [{
+                model: Role,
+                as: 'roles',
+                attributes: ['name'],
+                through: { attributes: [] }
+            }]
+        });
+
+        const usersData = users.map(user => {
+            const userData = user.toJSON();
+            userData.roles = user.roles ? user.roles.map(role => role.name) : [];
+            return userData;
+        });
+
+        res.status(200).json({
+            success: true,
+            data: usersData
+        });
+    } catch (error) {
+        console.error('Error al obtener usuarios:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Error al obtener usuarios',
+            error: error.message
+        });
+    }
+};
+
 module.exports = {
     register,
     login,
@@ -401,5 +434,6 @@ module.exports = {
     resetPassword,
     getProfile,
     updateUser,
-    deleteUser
+    deleteUser,
+    getAllUsers
 };

@@ -20,7 +20,10 @@ router.post('/reset-password', validateResetPassword, validate, authController.r
 
 router.get('/profile', verifyToken, authController.getProfile);
 
+
+router.get('/users', verifyToken, isAdmin, authController.getAllUsers);
 router.put('/users/:id', verifyToken, isAdmin, authController.updateUser);
+
 router.delete('/users/:id', verifyToken, isAdmin, authController.deleteUser);
 
 module.exports = router;

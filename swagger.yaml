@@ -295,6 +295,38 @@ paths:
         '400':
           description: Token inválido o expirado
 
+
+  /auth/users:
+    get:
+      summary: Listar todos los usuarios
+      description: Obtiene una lista de todos los usuarios registrados con sus roles. Requiere rol Admin.
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Lista de usuarios obtenida exitosamente
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: array
+                    items:
+                      allOf:
+                        - $ref: '#/components/schemas/User'
+                        - type: object
+                          properties:
+                            roles:
+                              type: array
+                              items:
+                                type: string
+        '403':
+          description: Prohibido (Requiere rol Admin)
+
   /auth/profile:
     get:
       summary: Obtener perfil del usuario
