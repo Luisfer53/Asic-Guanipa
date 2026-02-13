@@ -331,6 +331,57 @@ const getPatientContacts = async (req, res) => {
     }
 };
 
+const getAllPatients = async (req, res) => {
+    try {
+        const { page, limit, search = '' } = req.query;
+
+        const where = {};
+        if (search) {
+            where[Op.or] = [
+                { nombre: { [Op.iLike]: `%${search}%` } },
+                { apellido: { [Op.iLike]: `%${search}%` } },
+                { cedula: { [Op.like]: `%${search}%` } }
+            ];
+        }
+
+        const queryOptions = {
+            where,
+            order: [['apellido', 'ASC'], ['nombre', 'ASC']]
+        };
+
+        if (page && limit) {
+            queryOptions.limit = parseInt(limit);
+            queryOptions.offset = (parseInt(page) - 1) * parseInt(limit);
+        }
+
+        const { count, rows } = await Paciente.findAndCountAll(queryOptions);
+
+        const response = {
+            success: true,
+            data: rows,
+            total: count
+        };
+
+        if (page && limit) {
+            response.pagination = {
+                total: count,
+                page: parseInt(page),
+                limit: parseInt(limit),
+                totalPages: Math.ceil(count / parseInt(limit))
+            };
+        }
+
+        res.status(200).json(response);
+    } catch (error) {
+        console.error('Error fetching all patients:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Error al obtener listado de pacientes',
+            error: error.message
+        });
+    }
+};
+
 module.exports = {
     createPatient,
     getPatients,
@@ -338,6 +389,7 @@ module.exports = {
     getAttentionById,
     updatePatient,
     deletePatient,
-    getPatientContacts
+    getPatientContacts,
+    getAllPatients
 };
 

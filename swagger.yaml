@@ -514,6 +514,61 @@ paths:
         '400':
           description: Error de validación o paciente ya existe
 
+  /pacientes/listado:
+    get:
+      summary: Listar todos los pacientes
+      description: Obtiene una lista paginada de todos los pacientes registrados. Si no se proporcionan parámetros de paginación, devuelve todos los registros.
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: query
+          name: page
+          schema:
+            type: integer
+          description: Número de página
+        - in: query
+          name: limit
+          schema:
+            type: integer
+          description: Registros por página
+        - in: query
+          name: search
+          schema:
+            type: string
+          description: Término de búsqueda (nombre, apellido o cédula)
+      responses:
+        '200':
+          description: Lista de pacientes obtenida
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Patient'
+                  total:
+                    type: integer
+                  pagination:
+                    type: object
+                    properties:
+                      total:
+                        type: integer
+                      page:
+                        type: integer
+                      limit:
+                        type: integer
+                      totalPages:
+                        type: integer
+        '401':
+          description: No autorizado
+        '500':
+          description: Error del servidor
+
   /pacientes/contactos:
     get:
       summary: Listar contactos de pacientes
