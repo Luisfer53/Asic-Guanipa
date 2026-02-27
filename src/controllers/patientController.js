@@ -50,35 +50,29 @@ const createPatient = async (req, res) => {
             }
         }
 
-        let patient;
         if (cedula) {
-            patient = await Paciente.findOne({ where: { cedula } });
+            const existing = await Paciente.findOne({ where: { cedula } });
+            if (existing) {
+                return res.status(409).json({
+                    success: false,
+                    message: `La cédula ${cedula} ya está registrada`
+                });
+            }
         }
 
-        if (!patient) {
-            patient = await Paciente.create({
-                nombre,
-                apellido,
-                cedula: cedula || null,
-                fecha_nacimiento: fecha_nacimiento || null,
-                sexo,
-                telefono,
-                direccion,
-                nombre_representante: isMinor ? nombre_representante : null,
-                apellido_representante: isMinor ? apellido_representante : null,
-                cedula_representante: isMinor ? cedula_representante : null,
-                telefono_representante: isMinor ? telefono_representante : null
-            });
-        } else {
-            const updateData = { telefono, direccion };
-            if (isMinor) {
-                updateData.nombre_representante = nombre_representante;
-                updateData.apellido_representante = apellido_representante;
-                updateData.cedula_representante = cedula_representante;
-                updateData.telefono_representante = telefono_representante;
-            }
-            await patient.update(updateData);
-        }
+        const patient = await Paciente.create({
+            nombre,
+            apellido,
+            cedula: cedula || null,
+            fecha_nacimiento: fecha_nacimiento || null,
+            sexo,
+            telefono,
+            direccion,
+            nombre_representante: isMinor ? nombre_representante : null,
+            apellido_representante: isMinor ? apellido_representante : null,
+            cedula_representante: isMinor ? cedula_representante : null,
+            telefono_representante: isMinor ? telefono_representante : null
+        });
 
         res.status(201).json({
             success: true,
