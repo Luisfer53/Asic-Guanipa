@@ -83,7 +83,7 @@ describe('Patient Refactor Tests', () => {
         expect(patient).toBeTruthy();
     });
 
-    test('Should update existing patient info on register if already exists', async () => {
+    test('Should reject registration if cedula already exists', async () => {
         const res = await request(app)
             .post('/api/pacientes')
             .set('Authorization', `Bearer ${medicoToken}`)
@@ -97,9 +97,9 @@ describe('Patient Refactor Tests', () => {
                 direccion: 'Nueva Direccion'
             });
 
-        expect(res.statusCode).toBe(201);
-        const patient = await db.Paciente.findOne({ where: { cedula: '12345678' } });
-        expect(patient.telefono).toBe('555-9999');
+        expect(res.statusCode).toBe(409);
+        expect(res.body.success).toBe(false);
+        expect(res.body.message).toContain('ya está registrada');
     });
 
     test('Should fail if required fields are missing', async () => {
