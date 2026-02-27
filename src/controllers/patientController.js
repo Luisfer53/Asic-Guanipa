@@ -337,11 +337,14 @@ const getAllPatients = async (req, res) => {
 
         const where = {};
         if (search) {
-            where[Op.or] = [
-                { nombre: { [Op.iLike]: `%${search}%` } },
-                { apellido: { [Op.iLike]: `%${search}%` } },
-                { cedula: { [Op.like]: `%${search}%` } }
-            ];
+            const terms = search.trim().split(/\s+/);
+            where[Op.and] = terms.map(term => ({
+                [Op.or]: [
+                    { nombre: { [Op.iLike]: `%${term}%` } },
+                    { apellido: { [Op.iLike]: `%${term}%` } },
+                    { cedula: { [Op.like]: `%${term}%` } }
+                ]
+            }));
         }
 
         const queryOptions = {
