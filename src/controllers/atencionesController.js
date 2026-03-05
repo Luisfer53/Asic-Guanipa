@@ -11,7 +11,8 @@ exports.registrarCompleto = async (req, res) => {
         }
 
         const { nombre, apellido, fecha_nacimiento, sexo, telefono, direccion,
-            nombre_representante, apellido_representante, cedula_representante, telefono_representante } = paciente;
+            nombre_representante, apellido_representante, cedula_representante, telefono_representante,
+            direccion_representante } = paciente;
         const { diagnostico, fecha } = atencion;
         const id_usuario_registra = req.user ? req.user.id : null;
 
@@ -36,8 +37,8 @@ exports.registrarCompleto = async (req, res) => {
         }
 
         if (isMinor) {
-            if (!nombre_representante || !apellido_representante || !cedula_representante || !telefono_representante) {
-                throw new Error('Para menores de edad, los datos del representante son obligatorios');
+            if (!nombre_representante || !apellido_representante || !cedula_representante || !telefono_representante || !direccion_representante) {
+                throw new Error('Para menores de edad, los datos del representante son obligatorios (incluyendo dirección)');
             }
         } else {
             if (!cedula) {
@@ -62,6 +63,7 @@ exports.registrarCompleto = async (req, res) => {
                 if (apellido_representante) updateData.apellido_representante = apellido_representante;
                 if (cedula_representante) updateData.cedula_representante = cedula_representante;
                 if (telefono_representante) updateData.telefono_representante = telefono_representante;
+                if (direccion_representante) updateData.direccion_representante = direccion_representante;
             }
 
             if (Object.keys(updateData).length > 0) {
@@ -79,7 +81,8 @@ exports.registrarCompleto = async (req, res) => {
                 nombre_representante: isMinor ? nombre_representante : null,
                 apellido_representante: isMinor ? apellido_representante : null,
                 cedula_representante: isMinor ? cedula_representante : null,
-                telefono_representante: isMinor ? telefono_representante : null
+                telefono_representante: isMinor ? telefono_representante : null,
+                direccion_representante: isMinor ? direccion_representante : null
             }, { transaction: t });
         }
 
@@ -141,7 +144,7 @@ exports.registrarPacienteLegacy = async (req, res) => {
     const {
         nombre, apellido, edad, fecha_nacimiento, sexo, cedula, telefono, direccion,
         nombre_representante, apellido_representante, cedula_representante, telefono_representante,
-        diagnostico, fecha
+        direccion_representante, diagnostico, fecha
     } = req.body;
 
     let final_fecha_nacimiento = fecha_nacimiento;
@@ -154,7 +157,8 @@ exports.registrarPacienteLegacy = async (req, res) => {
         cedula,
         paciente: {
             nombre, apellido, fecha_nacimiento: final_fecha_nacimiento, sexo, telefono, direccion,
-            nombre_representante, apellido_representante, cedula_representante, telefono_representante
+            nombre_representante, apellido_representante, cedula_representante, telefono_representante,
+            direccion_representante
         },
         atencion: {
             diagnostico: diagnostico || 'Consulta general',
@@ -187,7 +191,8 @@ exports.registrarAtencionLegacy = async (req, res) => {
                 nombre_representante: paciente.nombre_representante,
                 apellido_representante: paciente.apellido_representante,
                 cedula_representante: paciente.cedula_representante,
-                telefono_representante: paciente.telefono_representante
+                telefono_representante: paciente.telefono_representante,
+                direccion_representante: paciente.direccion_representante
             },
             atencion: {
                 diagnostico: diagnostico || 'Consulta general',

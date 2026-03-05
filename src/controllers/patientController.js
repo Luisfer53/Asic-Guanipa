@@ -7,7 +7,8 @@ const User = db.User;
 const createPatient = async (req, res) => {
     try {
         const { nombre, apellido, edad, fecha_nacimiento, sexo, cedula, telefono, direccion,
-            nombre_representante, apellido_representante, cedula_representante, telefono_representante } = req.body;
+            nombre_representante, apellido_representante, cedula_representante, telefono_representante,
+            direccion_representante } = req.body;
 
         let edad_atencion = edad;
         if (fecha_nacimiento) {
@@ -35,10 +36,10 @@ const createPatient = async (req, res) => {
         }
 
         if (isMinor) {
-            if (!nombre_representante || !apellido_representante || !cedula_representante || !telefono_representante) {
+            if (!nombre_representante || !apellido_representante || !cedula_representante || !telefono_representante || !direccion_representante) {
                 return res.status(400).json({
                     success: false,
-                    message: 'Para menores de edad, los datos del representante son obligatorios'
+                    message: 'Para menores de edad, los datos del representante son obligatorios (incluyendo dirección)'
                 });
             }
         } else {
@@ -71,7 +72,8 @@ const createPatient = async (req, res) => {
             nombre_representante: isMinor ? nombre_representante : null,
             apellido_representante: isMinor ? apellido_representante : null,
             cedula_representante: isMinor ? cedula_representante : null,
-            telefono_representante: isMinor ? telefono_representante : null
+            telefono_representante: isMinor ? telefono_representante : null,
+            direccion_representante: isMinor ? direccion_representante : null
         });
 
         res.status(201).json({

@@ -124,13 +124,15 @@ describe('Patient Refactor Tests', () => {
                 nombre_representante: 'Maria Gomez',
                 apellido_representante: 'Gomez',
                 cedula_representante: 'V-12345678',
-                telefono_representante: '04141234567'
+                telefono_representante: '04141234567',
+                direccion_representante: 'Av. Principal, Sector 5'
             });
 
         expect(res.statusCode).toBe(201);
         expect(res.body.success).toBe(true);
         expect(res.body.data.patient.cedula).toBeNull();
         expect(res.body.data.patient.nombre_representante).toBe('Maria Gomez');
+        expect(res.body.data.patient.direccion_representante).toBe('Av. Principal, Sector 5');
     });
 
     test('Should fail to register a minor patient without representative data', async () => {

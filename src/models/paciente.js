@@ -58,6 +58,10 @@ module.exports = (sequelize, DataTypes) => {
         telefono_representante: {
             type: DataTypes.STRING,
             allowNull: true
+        },
+        direccion_representante: {
+            type: DataTypes.STRING(150),
+            allowNull: true
         }
     }, {
         sequelize,

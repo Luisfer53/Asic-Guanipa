@@ -59,6 +59,8 @@ components:
           type: string
         telefono_representante:
           type: string
+        direccion_representante:
+          type: string
         created_at:
           type: string
           format: date-time
@@ -435,7 +437,7 @@ paths:
       description: |
         Registra un nuevo paciente en el sistema sin crear una atención médica.
         - Para mayores de 18 años, la cédula es obligatoria.
-        - Para menores de 18 años, los datos del representante son obligatorios.
+        - Para menores de 18 años, los datos del representante son obligatorios (incluyendo dirección).
       security:
         - BearerAuth: []
       requestBody:
@@ -475,6 +477,9 @@ paths:
                   type: string
                 telefono_representante:
                   type: string
+                direccion_representante:
+                  type: string
+                  description: Obligatoria para menores de edad
             examples:
               adulto:
                 summary: Registro de adulto
@@ -497,6 +502,7 @@ paths:
                   apellido_representante: "Perez"
                   cedula_representante: "12345678"
                   telefono_representante: "04141112233"
+                  direccion_representante: "Av. Principal, Sector 5"
       responses:
         '201':
           description: Paciente registrado exitosamente

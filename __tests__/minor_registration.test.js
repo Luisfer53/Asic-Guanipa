@@ -58,7 +58,8 @@ describe('Minor Patient Registration Test', () => {
                 nombre_representante: 'Papa',
                 apellido_representante: 'Minor',
                 cedula_representante: '12345678',
-                telefono_representante: '04121234567'
+                telefono_representante: '04121234567',
+                direccion_representante: 'Calle 10, Barrio Norte'
             });
 
         expect(res.statusCode).toBe(201);
