@@ -79,7 +79,8 @@ describe('Patient Refactor Tests', () => {
         expect(res.body.success).toBe(true);
         expect(res.body.data.patient.cedula).toBe('12345678');
 
-        const patient = await db.Paciente.findOne({ where: { cedula: '12345678' } });
+        const allPatients = await db.Paciente.findAll();
+        const patient = allPatients.find(p => p.cedula === '12345678');
         expect(patient).toBeTruthy();
     });
 

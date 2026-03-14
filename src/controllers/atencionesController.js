@@ -49,7 +49,8 @@ exports.registrarCompleto = async (req, res) => {
         let pacienteRecord = null;
         let wasExisting = false;
         if (cedula) {
-            pacienteRecord = await Paciente.findOne({ where: { cedula }, transaction: t });
+            const todos = await Paciente.findAll({ transaction: t });
+            pacienteRecord = todos.find(p => p.cedula === cedula) || null;
             if (pacienteRecord) wasExisting = true;
         }
 

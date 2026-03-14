@@ -4,6 +4,14 @@ const Paciente = db.Paciente;
 const AtencionDiaria = db.AtencionDiaria;
 const User = db.User;
 
+// ─── Helper: buscar paciente por cédula en memoria ─────────────────────────
+// Los datos de cédula están cifrados en BD, no se puede usar WHERE cedula = X.
+// Se cargan todos los pacientes y se filtra con los getters que descifran.
+async function findPatientByCedula(cedula) {
+    const all = await Paciente.findAll({ attributes: ['id', 'cedula'] });
+    return all.find(p => p.cedula === cedula) || null;
+}
+
 const createPatient = async (req, res) => {
     try {
         const { nombre, apellido, edad, fecha_nacimiento, sexo, cedula, telefono, direccion,
@@ -52,7 +60,8 @@ const createPatient = async (req, res) => {
         }
 
         if (cedula) {
-            const existing = await Paciente.findOne({ where: { cedula } });
+            // Unicidad de cédula validada a nivel de aplicación (Opción B)
+            const existing = await findPatientByCedula(cedula);
             if (existing) {
                 return res.status(409).json({
                     success: false,
@@ -97,25 +106,26 @@ const getPatients = async (req, res) => {
     try {
         const { fecha, cedula } = req.query;
         const whereAttention = {};
-        const wherePatient = {};
 
         if (fecha) whereAttention.fecha = fecha;
-        if (cedula) wherePatient.cedula = cedula;
+
+        // Si se filtra por cédula, primero encontrar el paciente por búsqueda en memoria
+        let pacienteIdFiltro = null;
+        if (cedula) {
+            const paciente = await findPatientByCedula(cedula);
+            if (!paciente) {
+                return res.status(200).json({ success: true, data: [] });
+            }
+            pacienteIdFiltro = paciente.id;
+        }
+
+        if (pacienteIdFiltro) whereAttention.paciente_id = pacienteIdFiltro;
 
         const attentions = await AtencionDiaria.findAll({
             where: whereAttention,
             include: [
-                {
-                    model: Paciente,
-                    as: 'paciente',
-                    where: wherePatient,
-                    required: !!cedula
-                },
-                {
-                    model: User,
-                    as: 'usuario',
-                    attributes: ['username']
-                }
+                { model: Paciente, as: 'paciente' },
+                { model: User, as: 'usuario', attributes: ['username'] }
             ],
             order: [['fecha', 'DESC']]
         });
@@ -137,7 +147,8 @@ const getPatients = async (req, res) => {
 const getPatientHistory = async (req, res) => {
     try {
         const { cedula } = req.params;
-        const patient = await Paciente.findOne({ where: { cedula } });
+        // Búsqueda en memoria porque la cédula está cifrada en BD
+        const patient = await findPatientByCedula(cedula);
         if (!patient) {
             return res.status(404).json({
                 success: false,
@@ -302,15 +313,23 @@ const getAttentionById = async (req, res) => {
 const getPatientContacts = async (req, res) => {
     try {
         const { cedula } = req.query;
-        const where = {};
+
+        // Traer todos y filtrar en memoria (datos cifrados, no se puede WHERE en BD)
+        let patients = await Paciente.findAll({
+            attributes: ['id', 'nombre', 'apellido', 'cedula', 'telefono', 'direccion']
+        });
+
         if (cedula) {
-            where.cedula = { [Op.like]: `%${cedula}%` };
+            const term = cedula.toLowerCase();
+            patients = patients.filter(p =>
+                p.cedula && p.cedula.toLowerCase().includes(term)
+            );
         }
 
-        const patients = await Paciente.findAll({
-            where,
-            attributes: ['id', 'nombre', 'apellido', 'cedula', 'telefono', 'direccion'],
-            order: [['apellido', 'ASC'], ['nombre', 'ASC']]
+        // Ordenar en memoria
+        patients.sort((a, b) => {
+            const cmpAp = (a.apellido || '').localeCompare(b.apellido || '');
+            return cmpAp !== 0 ? cmpAp : (a.nombre || '').localeCompare(b.nombre || '');
         });
 
         res.status(200).json({
@@ -331,42 +350,51 @@ const getAllPatients = async (req, res) => {
     try {
         const { page, limit, search = '' } = req.query;
 
-        const where = {};
+        // Traer todos en texto plano (getters descifran automáticamente)
+        // La búsqueda full-text se hace en memoria porque los campos están cifrados en BD
+        let all = await Paciente.findAll();
+
         if (search) {
-            const terms = search.trim().split(/\s+/);
-            where[Op.and] = terms.map(term => ({
-                [Op.or]: [
-                    { nombre: { [Op.iLike]: `%${term}%` } },
-                    { apellido: { [Op.iLike]: `%${term}%` } },
-                    { cedula: { [Op.like]: `%${term}%` } }
-                ]
-            }));
+            const terms = search.trim().toLowerCase().split(/\s+/);
+            all = all.filter(p => {
+                const nombre  = (p.nombre  || '').toLowerCase();
+                const apellido = (p.apellido || '').toLowerCase();
+                const cedula  = (p.cedula  || '').toLowerCase();
+                return terms.every(term =>
+                    nombre.includes(term) || apellido.includes(term) || cedula.includes(term)
+                );
+            });
         }
 
-        const queryOptions = {
-            where,
-            order: [['apellido', 'ASC'], ['nombre', 'ASC']]
-        };
+        // Ordenar en memoria
+        all.sort((a, b) => {
+            const cmpAp = (a.apellido || '').localeCompare(b.apellido || '');
+            return cmpAp !== 0 ? cmpAp : (a.nombre || '').localeCompare(b.nombre || '');
+        });
+
+        const total = all.length;
+        let rows = all;
 
         if (page && limit) {
-            queryOptions.limit = parseInt(limit);
-            queryOptions.offset = (parseInt(page) - 1) * parseInt(limit);
+            const p = parseInt(page);
+            const l = parseInt(limit);
+            rows = all.slice((p - 1) * l, p * l);
         }
-
-        const { count, rows } = await Paciente.findAndCountAll(queryOptions);
 
         const response = {
             success: true,
             data: rows,
-            total: count
+            total
         };
 
         if (page && limit) {
+            const p = parseInt(page);
+            const l = parseInt(limit);
             response.pagination = {
-                total: count,
-                page: parseInt(page),
-                limit: parseInt(limit),
-                totalPages: Math.ceil(count / parseInt(limit))
+                total,
+                page: p,
+                limit: l,
+                totalPages: Math.ceil(total / l)
             };
         }
 

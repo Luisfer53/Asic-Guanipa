@@ -98,7 +98,8 @@ describe('POST /api/atenciones/registrar-completo - Unified Patient-Attention Re
             expect(res.body.data.paciente_existia).toBe(false);
 
 
-            const paciente = await Paciente.findOne({ where: { cedula: '12345678' } });
+            const allPatients1 = await Paciente.findAll();
+            const paciente = allPatients1.find(p => p.cedula === '12345678');
             expect(paciente).toBeTruthy();
             expect(paciente.nombre).toBe('Juan');
 
@@ -143,7 +144,8 @@ describe('POST /api/atenciones/registrar-completo - Unified Patient-Attention Re
             expect(res.body.data.paciente_existia).toBe(true);
 
 
-            const paciente = await Paciente.findOne({ where: { cedula: '12345678' } });
+            const allPatients2 = await Paciente.findAll();
+            const paciente = allPatients2.find(p => p.cedula === '12345678');
             expect(paciente.telefono).toBe('04149999999');
             expect(paciente.direccion).toBe('Nueva dirección');
 
@@ -259,8 +261,9 @@ describe('POST /api/atenciones/registrar-completo - Unified Patient-Attention Re
             expect(res.body.message).toContain('Stock insuficiente');
 
 
-            const paciente = await Paciente.findOne({ where: { cedula: '99999999' } });
-            expect(paciente).toBeNull();
+            const allPatients3 = await Paciente.findAll();
+            const paciente = allPatients3.find(p => p.cedula === '99999999');
+            expect(paciente).toBeUndefined();
         });
 
         it('should fail if lote does not exist', async () => {
