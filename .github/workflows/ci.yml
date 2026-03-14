@@ -18,7 +18,9 @@ jobs:
       DB_PORT: 5432
       JWT_SECRET: tu_secreto_jwt_super_seguro_cambialo
       JWT_EXPIRE: 24h
+      ENCRYPTION_KEY: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
       NODE_ENV: test
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
 
     services:
       postgres:
