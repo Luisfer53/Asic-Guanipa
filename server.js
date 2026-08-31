@@ -15,11 +15,11 @@ const path = require('path');
 const fs = require('fs');
 const swaggerDocument = YAML.load(path.join(__dirname, 'swagger.yaml'));
 
-const prodUrl = 'https://api.asic-guanipa.online/api';
-const devUrl = 'http://localhost:3000/api';
+const prodUrl = process.env.SERVER_URL || (process.env.RENDER_EXTERNAL_URL ? `${process.env.RENDER_EXTERNAL_URL}/api` : 'https://api.asic-guanipa.online/api');
+const devUrl = `http://localhost:${process.env.PORT || 3000}/api`;
 
 swaggerDocument.servers = [{
-    url: process.env.SERVER_URL || (process.env.NODE_ENV === 'production' ? prodUrl : devUrl),
+    url: process.env.NODE_ENV === 'production' ? prodUrl : (process.env.SERVER_URL || devUrl),
     description: process.env.NODE_ENV === 'production' ? 'Servidor de Producción' : 'Servidor de Desarrollo'
 }];
 
