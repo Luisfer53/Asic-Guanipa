@@ -140,9 +140,10 @@ app.use((req, res) => {
 });
 
 const PORT = process.env.PORT || 3000;
+const HOST = '0.0.0.0';
 
 if (require.main === module) {
-    app.listen(PORT, () => {
+    app.listen(PORT, HOST, () => {
         const currentUrl = process.env.SERVER_URL || (process.env.NODE_ENV === 'production' ? prodUrl : `http://localhost:${PORT}/api`);
         const displayUrl = currentUrl.replace(/\/api$/, '');
 
