@@ -32,7 +32,10 @@ fs
     })
     .forEach(file => {
         const model = require(path.join(__dirname, file))(sequelize, Sequelize.DataTypes);
-        db[model.name] = model;
+        // Los archivos deprecated (como users.js) devuelven undefined — se omiten
+        if (model) {
+            db[model.name] = model;
+        }
     });
 
 Object.keys(db).forEach(modelName => {

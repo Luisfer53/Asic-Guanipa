@@ -19,6 +19,7 @@ router.get('/pacientes/contactos', [verifyToken, isMedicoOrAdmin], patientContro
 router.get('/pacientes/:cedula/historial', [verifyToken, isMedicoOrAdmin], patientController.getPatientHistory);
 router.get('/pacientes/atencion/:id', [verifyToken, isMedicoOrAdmin], patientController.getAttentionById);
 router.put('/pacientes/:id', [verifyToken, isAdmin], patientController.updatePatient);
+router.put('/pacientes/datos/:id', [verifyToken, isMedicoOrAdmin], patientController.updatePatientData);
 router.delete('/pacientes/:id', [verifyToken, isAdmin], patientController.deletePatient);
 
 

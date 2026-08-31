@@ -1,14 +1,18 @@
 const express = require('express');
 const cors = require('cors');
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
 require('dotenv').config();
 
 const authRoutes = require('./src/routes/authRoutes');
 const patientRoutes = require('./src/routes/patientRoutes');
 const atencionesRoutes = require('./src/routes/atencionesRoutes');
 const inventarioRoutes = require('./src/routes/inventarioRoutes');
+const reportRoutes = require('./src/routes/reportRoutes');
 const swaggerUi = require('swagger-ui-express');
 const YAML = require('yamljs');
 const path = require('path');
+const fs = require('fs');
 const swaggerDocument = YAML.load(path.join(__dirname, 'swagger.yaml'));
 
 const prodUrl = 'https://api.asic-guanipa.online/api';
@@ -20,33 +24,104 @@ swaggerDocument.servers = [{
 }];
 
 const app = express();
+app.set('trust proxy', 1);
 
-app.use(cors());
+// ─── 🛡️ SEGURIDAD: Encabezados HTTP (Helmet) ───────────────────────────
+app.use(helmet({ contentSecurityPolicy: false }));
+
+// ─── 🛡️ SEGURIDAD: Configuración de CORS ────────────────────────────────
+const allowedOrigins = process.env.ALLOWED_ORIGINS
+    ? process.env.ALLOWED_ORIGINS.split(',')
+    : ['http://localhost:3000', 'http://localhost:8080', 'https://api.asic-guanipa.online'];
+
+app.use(cors({
+    origin: (origin, callback) => {
+        if (!origin || process.env.NODE_ENV !== 'production' || allowedOrigins.includes(origin)) {
+            callback(null, true);
+        } else {
+            callback(new Error('Acceso no permitido por la directiva CORS'));
+        }
+    },
+    credentials: true
+}));
+
+// ─── 🛡️ SEGURIDAD: Limite de peticiones (Rate Limiting) ───────────────
+const authLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutos
+    max: 15, // máximo 15 intentos por IP en 15 min
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: {
+        success: false,
+        message: 'Demasiados intentos desde esta dirección IP. Intente de nuevo en 15 minutos.'
+    }
+});
+
+const apiLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 500, // máximo 500 peticiones globales por IP en 15 min
+    standardHeaders: true,
+    legacyHeaders: false
+});
+
+app.use('/api/', apiLimiter);
+app.use('/api/auth/login', authLimiter);
+app.use('/api/auth/forgot-password', authLimiter);
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// Servir archivos de descarga de aplicaciones (APKs, instaladores, etc.)
+app.use('/downloads', express.static(path.join(__dirname, 'downloads')));
+
+// Servir archivos estáticos de la carpeta public (como logo.png)
+app.use(express.static(path.join(__dirname, 'public')));
+
+// ─── 🌐 FRONTEND WEB (Flutter Web Build) ─────────────────────────────────────
+// Sirve la app Flutter web compilada en /app
+// Cualquier ruta desconocida dentro de /app devuelve index.html (SPA fallback)
+const flutterWebPath = path.join(__dirname, 'frontend', 'build', 'web');
+app.use('/app', express.static(flutterWebPath, { index: 'index.html' }));
+app.get('/app', (req, res) => {
+    res.sendFile(path.join(flutterWebPath, 'index.html'));
+});
+app.get('/app/*', (req, res) => {
+    res.sendFile(path.join(flutterWebPath, 'index.html'));
+});
+
+// La raíz redirige al frontend web
 app.get('/', (req, res) => {
-    res.json({
-        success: true,
-        message: 'API de Autenticación - Servidor funcionando',
-        version: '1.0.0',
-        endpoints: {
-            register: 'POST /api/auth/register',
-            login: 'POST /api/auth/login',
-            forgotPassword: 'POST /api/auth/forgot-password',
-            resetPassword: 'POST /api/auth/reset-password',
-            profile: 'GET /api/auth/profile (requiere token)',
-            pacientes: 'GET /api/pacientes',
-            reportes: 'GET /api/reportes'
-        }
-    });
+    res.redirect('/app/');
 });
 
 app.use('/api/auth', authRoutes);
 app.use('/api', patientRoutes);
 app.use('/api', atencionesRoutes);
+app.use('/api', reportRoutes);
 app.use('/api/inventario', inventarioRoutes);
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
+
+// Endpoint público para obtener configuración en tiempo de ejecución
+app.get('/config', (req, res) => {
+    const serverUrl = process.env.SERVER_URL || (process.env.NODE_ENV === 'production' ? prodUrl : devUrl);
+    const downloadsBase = serverUrl.replace(/\/api$/, '');
+    let apkDownload = null;
+    try {
+        const latestFile = path.join(__dirname, 'downloads', 'latest-apk-url.txt');
+        if (fs.existsSync(latestFile)) {
+            apkDownload = fs.readFileSync(latestFile, 'utf8').trim();
+        } else {
+            apkDownload = `${downloadsBase}/downloads/asic-guanipa.apk`;
+        }
+    } catch (e) {
+        apkDownload = `${downloadsBase}/downloads/asic-guanipa.apk`;
+    }
+
+    res.json({
+        server_url: serverUrl,
+        apk_download_url: apkDownload,
+    });
+});
 
 app.use((err, req, res, next) => {
     console.error('Error:', err);

@@ -3,6 +3,15 @@ node_modules/
 
 # Environment variables
 .env
+.env.*
+!.env.example
+
+# Large binaries and tools
+cloudflared
+*.apk
+*.aab
+downloads/
+!downloads/.gitkeep
 
 # Logs
 logs/
@@ -19,11 +28,17 @@ Thumbs.db
 *.swp
 *.swo
 
-# Testing
+# Testing & Coverage
 coverage/
+/coverage
 
-# Production
+# Production & Build outputs
 dist/
 build/
-
-/coverage
+frontend/build/
+frontend/.dart_tool/
+frontend/.flutter-plugins
+frontend/.flutter-plugins-dependencies
+frontend/.pub-cache/
+frontend/.pub/
+public/web/

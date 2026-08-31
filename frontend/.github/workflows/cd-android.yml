@@ -1,0 +1,45 @@
+name: DEPLOYMENT PRODUCTION ASIC GUANIPA ANDROID
+
+on:
+  push:
+    tags:
+      - "*"
+      - "!*alpha*"
+      - "!*beta*"
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      FLUTTER_ENV: production
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+      - name: Set enviroment .env
+        run: |
+          :> .env
+          echo "VERSION=${{ github.ref_name }}" >> .env
+          echo "API_URL=\"${{ secrets.API_URL }}\"" >> .env
+      - name: Install Dependencies
+        run: |
+          flutter pub get
+      - name: Build Flutter Android
+        run: |
+          flutter build apk \
+            --release \
+            --dart-define=API_URL=${{ secrets.API_URL }} \
+            --dart-define=VERSION=${{ github.ref_name }}
+      - name: Install sshpass
+        run: sudo apt-get update && sudo apt-get install -y sshpass
+
+      - name: Upload APK to server via SCP with password
+        env:
+          SERVER_HOST: ${{ secrets.SSH_HOSTNAME }}
+          SERVER_USER: ${{ secrets.SSH_USERNAME }}
+          SERVER_PASSWORD: ${{ secrets.SSH_PASSWORD }}
+        run: |
+          sshpass -p "$SERVER_PASSWORD" scp -o StrictHostKeyChecking=no build/app/outputs/flutter-apk/app-release.apk $SERVER_USER@$SERVER_HOST:~/build/apk/app-release.apk
+          sshpass -p "$SERVER_PASSWORD" scp -o StrictHostKeyChecking=no build/app/outputs/flutter-apk/app-release.apk $SERVER_USER@$SERVER_HOST:~/build/apk/app-release-${{ github.ref_name }}.apk

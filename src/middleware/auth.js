@@ -1,9 +1,9 @@
 const jwt = require('jsonwebtoken');
-const db = require('../config/database'); 
+const db = require('../models');
 
 const verifyToken = async (req, res, next) => {
     try {
-        const token = req.headers.authorization?.split(' ')[1];
+        const token = req.headers.authorization?.split(' ')[1] || req.query.token;
 
         if (!token) {
             return res.status(401).json({
@@ -15,13 +15,16 @@ const verifyToken = async (req, res, next) => {
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
         req.user = decoded;
 
-        const userRoles = await db.query(
-            `SELECT r.name FROM roles r 
-             JOIN user_roles ur ON r.id = ur.role_id 
-             WHERE ur.username = $1`,
-            [req.user.username]
+        const userRoles = await db.sequelize.query(
+            `SELECT r.nombre_rol FROM roles r 
+             JOIN usuario_roles ur ON r.id_serial = ur.id_rol 
+             WHERE ur.nombre_usuario = $1`,
+            {
+                bind: [req.user.username],
+                type: db.Sequelize.QueryTypes.SELECT
+            }
         );
-        req.user.roles = userRoles.rows.map(r => r.name);
+        req.user.roles = userRoles.map(r => r.nombre_rol);
 
         next();
 
@@ -43,7 +46,13 @@ const isAdmin = (req, res, next) => {
 };
 
 const isMedicoOrAdmin = (req, res, next) => {
-    if (req.user && req.user.roles && (req.user.roles.includes('Admin') || req.user.roles.includes('Medico') || req.user.roles.includes('Asistente'))) {
+    if (req.user && req.user.roles && (
+        req.user.roles.includes('Admin') ||
+        req.user.roles.includes('Médico') ||
+        req.user.roles.includes('Medico') ||
+        req.user.roles.includes('Enfermería') ||
+        req.user.roles.includes('Asistente')
+    )) {
         next();
     } else {
         res.status(403).json({ success: false, message: 'No tiene permisos suficientes' });
