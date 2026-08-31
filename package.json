@@ -6,6 +6,9 @@
   "scripts": {
     "start": "node server.js",
     "dev": "npx nodemon server.js",
+    "db:migrate": "npx sequelize-cli db:migrate",
+    "db:seed": "npx sequelize-cli db:seed:all",
+    "render-build": "npm install && npx sequelize-cli db:migrate && npx sequelize-cli db:seed:all",
     "tunnel": "bash ./start-tunnel.sh",
     "start:all": "bash ./start-all.sh",
     "deploy:apk": "bash ./deploy-apk.sh",
