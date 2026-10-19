@@ -727,16 +727,18 @@ class _RecipeDigitalDialogState extends State<RecipeDigitalDialog>
 
   @override
   Widget build(BuildContext context) {
+    final isMobile = MediaQuery.of(context).size.width < 700;
+
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       backgroundColor: Colors.white,
-      insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+      insetPadding: EdgeInsets.symmetric(horizontal: isMobile ? 10 : 24, vertical: isMobile ? 12 : 24),
       child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 960, maxHeight: 780),
+        constraints: BoxConstraints(maxWidth: 960, maxHeight: isMobile ? MediaQuery.of(context).size.height * 0.96 : 780),
         child: Column(
           children: [
             // Header del diálogo
-            _buildDialogHeader(),
+            _buildDialogHeader(isMobile),
 
             // Barra de pestañas
             Container(
@@ -746,10 +748,16 @@ class _RecipeDigitalDialogState extends State<RecipeDigitalDialog>
                 indicatorColor: _primary,
                 labelColor: _primary,
                 unselectedLabelColor: const Color(0xFF64748B),
-                labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-                tabs: const [
-                  Tab(icon: Icon(Icons.edit_note_rounded, size: 18), text: 'Edición del Récipe'),
-                  Tab(icon: Icon(Icons.visibility_rounded, size: 18), text: 'Vista Previa Oficial (Récipe + Indicaciones)'),
+                labelStyle: TextStyle(fontWeight: FontWeight.bold, fontSize: isMobile ? 11.5 : 13),
+                tabs: [
+                  Tab(
+                    icon: const Icon(Icons.edit_note_rounded, size: 18),
+                    text: isMobile ? 'Edición' : 'Edición del Récipe',
+                  ),
+                  Tab(
+                    icon: const Icon(Icons.visibility_rounded, size: 18),
+                    text: isMobile ? 'Vista Previa' : 'Vista Previa Oficial (Récipe + Indicaciones)',
+                  ),
                 ],
               ),
             ),
@@ -759,23 +767,23 @@ class _RecipeDigitalDialogState extends State<RecipeDigitalDialog>
               child: TabBarView(
                 controller: _tabController,
                 children: [
-                  _buildEdicionTab(),
-                  _buildVistaPreviaTab(),
+                  _buildEdicionTab(isMobile),
+                  _buildVistaPreviaTab(isMobile),
                 ],
               ),
             ),
 
             // Footer con botones de acción
-            _buildDialogFooter(),
+            _buildDialogFooter(isMobile),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildDialogHeader() {
+  Widget _buildDialogHeader([bool isMobile = false]) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+      padding: EdgeInsets.symmetric(horizontal: isMobile ? 14 : 24, vertical: isMobile ? 12 : 16),
       decoration: const BoxDecoration(
         color: _primary,
         borderRadius: BorderRadius.only(
@@ -791,20 +799,22 @@ class _RecipeDigitalDialogState extends State<RecipeDigitalDialog>
               color: Colors.white.withValues(alpha: 0.15),
               borderRadius: BorderRadius.circular(10),
             ),
-            child: const Icon(Icons.receipt_long_rounded, color: Colors.white, size: 24),
+            child: Icon(Icons.receipt_long_rounded, color: Colors.white, size: isMobile ? 20 : 24),
           ),
-          const SizedBox(width: 14),
+          const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
+                Text(
                   'Récipe Médico Digital Oficial',
-                  style: TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.bold),
+                  style: TextStyle(color: Colors.white, fontSize: isMobile ? 15 : 17, fontWeight: FontWeight.bold),
                 ),
                 Text(
-                  'Paciente: ${widget.paciente.nombreCompleto} (${widget.paciente.cedula}) · ASIC San José de Guanipa',
-                  style: TextStyle(color: Colors.white.withValues(alpha: 0.85), fontSize: 12),
+                  '${widget.paciente.nombreCompleto} (${widget.paciente.cedula})',
+                  style: TextStyle(color: Colors.white.withValues(alpha: 0.85), fontSize: isMobile ? 11 : 12),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ],
             ),
@@ -819,38 +829,38 @@ class _RecipeDigitalDialogState extends State<RecipeDigitalDialog>
     );
   }
 
-  Widget _buildEdicionTab() {
+  Widget _buildEdicionTab(bool isMobile) {
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(24),
+      padding: EdgeInsets.all(isMobile ? 14 : 24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Tarjeta de datos del paciente y diagnóstico
-          _buildPatientInfoSection(),
-          const SizedBox(height: 20),
+          _buildPatientInfoSection(isMobile),
+          const SizedBox(height: 16),
 
           // Presets rápidos de medicación frecuente
           _buildPresetsBar(),
           const SizedBox(height: 16),
 
           // Sección para agregar nuevo medicamento
-          _buildAddMedicationCard(),
-          const SizedBox(height: 24),
+          _buildAddMedicationCard(isMobile),
+          const SizedBox(height: 20),
 
           // Lista de medicamentos prescritos
           _buildMedicamentosList(),
           const SizedBox(height: 20),
 
           // Indicaciones generales y datos del médico
-          _buildDoctorAndIndicationsSection(),
+          _buildDoctorAndIndicationsSection(isMobile),
         ],
       ),
     );
   }
 
-  Widget _buildPatientInfoSection() {
+  Widget _buildPatientInfoSection([bool isMobile = false]) {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: EdgeInsets.all(isMobile ? 12 : 16),
       decoration: BoxDecoration(
         color: _surface,
         borderRadius: BorderRadius.circular(12),
@@ -858,6 +868,109 @@ class _RecipeDigitalDialogState extends State<RecipeDigitalDialog>
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (isMobile) ...[
+            Row(
+              children: [
+                const Icon(Icons.person_rounded, color: _primary, size: 18),
+                const SizedBox(width: 6),
+                const Expanded(
+                  child: Text('Datos y Motivo de Consulta',
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF0F172A))),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFEFF6FF),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Text(
+                    '${widget.paciente.edadFormateada} · ${widget.paciente.sexoFormateado}',
+                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: _primary),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _diagnosticoController,
+              decoration: const InputDecoration(
+                labelText: 'Diagnóstico Clínico / Motivo de Prescripción',
+                prefixIcon: Icon(Icons.healing_rounded, size: 18),
+                border: OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(8))),
+                contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              ),
+            ),
+            const SizedBox(height: 10),
+            TextField(
+              controller: _pesoController,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(
+                labelText: 'Peso (Kg)',
+                hintText: 'Ej. 14.5',
+                prefixIcon: Icon(Icons.monitor_weight_outlined, size: 18),
+                border: OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(8))),
+                contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              ),
+            ),
+          ] else ...[
+            Row(
+              children: [
+                const Icon(Icons.person_rounded, color: _primary, size: 18),
+                const SizedBox(width: 8),
+                const Text('Datos del Paciente y Motivo de Consulta',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Color(0xFF0F172A))),
+                const Spacer(),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFEFF6FF),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Text(
+                    'Edad: ${widget.paciente.edadFormateada} · ${widget.paciente.sexoFormateado}',
+                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: _primary),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 14),
+            Row(
+              children: [
+                Expanded(
+                  flex: 3,
+                  child: TextField(
+                    controller: _diagnosticoController,
+                    decoration: const InputDecoration(
+                      labelText: 'Diagnóstico Clínico / Motivo de Prescripción',
+                      prefixIcon: Icon(Icons.healing_rounded, size: 18),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(8))),
+                      contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  flex: 1,
+                  child: TextField(
+                    controller: _pesoController,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(
+                      labelText: 'Peso (Kg)',
+                      hintText: 'Ej. 14.5',
+                      prefixIcon: Icon(Icons.monitor_weight_outlined, size: 18),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(8))),
+                      contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ],
+      ),
+    );
+  }
         children: [
           Row(
             children: [

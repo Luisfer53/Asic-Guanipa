@@ -359,102 +359,191 @@ class _ListPatientsState extends State<ListPatients> {
 
   // ─── 1. Encabezado ─────────────────────────────────────────────────────────
   Widget _buildHeader() {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        border: Border(bottom: BorderSide(color: Color(0xFFE2E8F0))),
-      ),
-      child: Row(
-        children: [
-          // Botón volver al inicio
-          OutlinedButton.icon(
-            style: OutlinedButton.styleFrom(
-              foregroundColor: const Color(0xFF1565C0),
-              side: const BorderSide(color: Color(0xFFBFDBFE)),
-              backgroundColor: const Color(0xFFEFF6FF),
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isMobile = constraints.maxWidth < 600;
+        if (isMobile) {
+          return Container(
+            padding: const EdgeInsets.fromLTRB(12, 12, 12, 10),
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              border: Border(bottom: BorderSide(color: Color(0xFFE2E8F0))),
             ),
-            icon: const Icon(Icons.arrow_back_rounded, size: 16),
-            label: const Text('Inicio', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-            onPressed: () => context.canPop() ? context.pop() : context.go('/'),
-          ),
-          const SizedBox(width: 12),
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: const Color(0xFF1565C0).withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(10),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    OutlinedButton(
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: const Color(0xFF1565C0),
+                        side: const BorderSide(color: Color(0xFFBFDBFE)),
+                        backgroundColor: const Color(0xFFEFF6FF),
+                        minimumSize: const Size(40, 38),
+                        padding: const EdgeInsets.symmetric(horizontal: 10),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      ),
+                      onPressed: () => context.canPop() ? context.pop() : context.go('/'),
+                      child: const Icon(Icons.arrow_back_rounded, size: 18),
+                    ),
+                    const SizedBox(width: 10),
+                    const Expanded(
+                      child: Text(
+                        'Registro Nominal',
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w800,
+                          color: Color(0xFF0F172A),
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.download_rounded, size: 20, color: Color(0xFF0F766E)),
+                      tooltip: 'Exportar CSV',
+                      onPressed: _exportarCSV,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        onPressed: () {
+                          QuickPatientDialog.show(context, onPatientCreated: (_) => _loadPacientes());
+                        },
+                        icon: const Icon(Icons.flash_on_rounded, size: 16),
+                        label: const Text('Alta Rápida', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF00897B),
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        onPressed: () {
+                          showDialog(
+                            context: context,
+                            builder: (_) => CreatePatientDialog(onPatientCreated: ([_]) => _loadPacientes()),
+                          );
+                        },
+                        icon: const Icon(Icons.person_add_alt_1_rounded, size: 16),
+                        label: const Text('Completo', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF1565C0),
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
             ),
-            child: const Icon(Icons.people_alt_rounded, color: Color(0xFF1565C0), size: 24),
+          );
+        }
+
+        // Desktop / tablet
+        return Container(
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            border: Border(bottom: BorderSide(color: Color(0xFFE2E8F0))),
           ),
-          const SizedBox(width: 12),
-          const Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          child: Row(
             children: [
-              Text(
-                'Registro Nominal de Pacientes',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w800,
-                  color: Color(0xFF0F172A),
+              OutlinedButton.icon(
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: const Color(0xFF1565C0),
+                  side: const BorderSide(color: Color(0xFFBFDBFE)),
+                  backgroundColor: const Color(0xFFEFF6FF),
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                ),
+                icon: const Icon(Icons.arrow_back_rounded, size: 16),
+                label: const Text('Inicio', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                onPressed: () => context.canPop() ? context.pop() : context.go('/'),
+              ),
+              const SizedBox(width: 12),
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF1565C0).withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(Icons.people_alt_rounded, color: Color(0xFF1565C0), size: 24),
+              ),
+              const SizedBox(width: 12),
+              const Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Registro Nominal de Pacientes',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w800,
+                      color: Color(0xFF0F172A),
+                    ),
+                  ),
+                  Text(
+                    'Censo poblacional y trazabilidad nominal del ASIC Guanipa / CDI Pedro Urbina',
+                    style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                  ),
+                ],
+              ),
+              const Spacer(),
+              OutlinedButton.icon(
+                onPressed: _exportarCSV,
+                icon: const Icon(Icons.download_rounded, size: 16),
+                label: const Text('Exportar CSV / Excel', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: const Color(0xFF0F766E),
+                  side: const BorderSide(color: Color(0xFF0F766E), width: 1.2),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                 ),
               ),
-              Text(
-                'Censo poblacional y trazabilidad nominal del ASIC Guanipa / CDI Pedro Urbina',
-                style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+              const SizedBox(width: 8),
+              ElevatedButton.icon(
+                onPressed: () {
+                  QuickPatientDialog.show(context, onPatientCreated: (_) => _loadPacientes());
+                },
+                icon: const Icon(Icons.flash_on_rounded, size: 16),
+                label: const Text('Alta Rápida (<20s)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF00897B),
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                ),
+              ),
+              const SizedBox(width: 8),
+              ElevatedButton.icon(
+                onPressed: () {
+                  showDialog(
+                    context: context,
+                    builder: (_) => CreatePatientDialog(onPatientCreated: ([_]) => _loadPacientes()),
+                  );
+                },
+                icon: const Icon(Icons.person_add_alt_1_rounded, size: 16),
+                label: const Text('Registro Completo', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF1565C0),
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                ),
               ),
             ],
           ),
-          const Spacer(),
-          // Botón Exportar CSV
-          OutlinedButton.icon(
-            onPressed: _exportarCSV,
-            icon: const Icon(Icons.download_rounded, size: 16),
-            label: const Text('Exportar CSV / Excel', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-            style: OutlinedButton.styleFrom(
-              foregroundColor: const Color(0xFF0F766E),
-              side: const BorderSide(color: Color(0xFF0F766E), width: 1.2),
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-            ),
-          ),
-          const SizedBox(width: 8),
-          // Botón Alta Rápida
-          ElevatedButton.icon(
-            onPressed: () {
-              QuickPatientDialog.show(context, onPatientCreated: (_) => _loadPacientes());
-            },
-            icon: const Icon(Icons.flash_on_rounded, size: 16),
-            label: const Text('Alta Rápida (<20s)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF00897B),
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-            ),
-          ),
-          const SizedBox(width: 8),
-          // Botón Registro Completo
-          ElevatedButton.icon(
-            onPressed: () {
-              showDialog(
-                context: context,
-                builder: (_) => CreatePatientDialog(onPatientCreated: ([_]) => _loadPacientes()),
-              );
-            },
-            icon: const Icon(Icons.person_add_alt_1_rounded, size: 16),
-            label: const Text('Registro Completo', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF1565C0),
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-            ),
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 
@@ -525,167 +614,192 @@ class _ListPatientsState extends State<ListPatients> {
         (_filtroGrupoEtario != null && _filtroGrupoEtario != 'todos') ||
         (_filtroSexo != null && _filtroSexo != 'todos');
 
-    return Container(
-      padding: const EdgeInsets.fromLTRB(20, 6, 20, 10),
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        border: Border(bottom: BorderSide(color: Color(0xFFE2E8F0))),
-      ),
-      child: Row(
-        children: [
-          // Buscador principal
-          Expanded(
-            flex: 3,
-            child: SizedBox(
-              height: 38,
-              child: TextField(
-                controller: _searchController,
-                onChanged: _onSearchChanged,
-                style: const TextStyle(fontSize: 13),
-                decoration: InputDecoration(
-                  hintText: 'Buscar por nombre, cédula, teléfono o dirección...',
-                  hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 12),
-                  prefixIcon: const Icon(Icons.search_rounded, size: 18, color: Color(0xFF64748B)),
-                  suffixIcon: _searchController.text.isNotEmpty
-                      ? IconButton(
-                          icon: const Icon(Icons.clear_rounded, size: 16),
-                          onPressed: () {
-                            _searchController.clear();
-                            _onSearchChanged('');
-                          },
-                        )
-                      : null,
-                  filled: true,
-                  fillColor: const Color(0xFFF8FAFC),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 10),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                    borderSide: const BorderSide(color: Color(0xFFCBD5E1)),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                    borderSide: const BorderSide(color: Color(0xFFCBD5E1)),
-                  ),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isMobile = constraints.maxWidth < 600;
+
+        final buscador = SizedBox(
+          height: 38,
+          child: TextField(
+            controller: _searchController,
+            onChanged: _onSearchChanged,
+            style: const TextStyle(fontSize: 13),
+            decoration: InputDecoration(
+              hintText: isMobile
+                  ? 'Buscar por nombre, cédula...'
+                  : 'Buscar por nombre, cédula, teléfono o dirección...',
+              hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 12),
+              prefixIcon: const Icon(Icons.search_rounded, size: 18, color: Color(0xFF64748B)),
+              suffixIcon: _searchController.text.isNotEmpty
+                  ? IconButton(
+                      icon: const Icon(Icons.clear_rounded, size: 16),
+                      onPressed: () {
+                        _searchController.clear();
+                        _onSearchChanged('');
+                      },
+                    )
+                  : null,
+              filled: true,
+              fillColor: const Color(0xFFF8FAFC),
+              contentPadding: const EdgeInsets.symmetric(horizontal: 10),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+                borderSide: const BorderSide(color: Color(0xFFCBD5E1)),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+                borderSide: const BorderSide(color: Color(0xFFCBD5E1)),
+              ),
+            ),
+          ),
+        );
+
+        final sectorFiltro = SizedBox(
+          height: 38,
+          child: DropdownButtonFormField<String>(
+            value: _filtroSector,
+            isExpanded: true,
+            style: const TextStyle(fontSize: 12, color: Color(0xFF1E293B)),
+            decoration: InputDecoration(
+              labelText: 'Sector',
+              labelStyle: const TextStyle(fontSize: 11),
+              filled: true,
+              fillColor: const Color(0xFFF8FAFC),
+              contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            items: [
+              const DropdownMenuItem(value: 'todos', child: Text('Todos los sectores')),
+              ..._sectoresGuanipa.map((s) => DropdownMenuItem(value: s, child: Text(s, overflow: TextOverflow.ellipsis))),
+            ],
+            onChanged: (v) {
+              setState(() {
+                _filtroSector = v;
+                _paginaActual = 1;
+                _aplicarFiltrosLocales();
+              });
+            },
+          ),
+        );
+
+        final etarioFiltro = SizedBox(
+          height: 38,
+          child: DropdownButtonFormField<String>(
+            value: _filtroGrupoEtario,
+            isExpanded: true,
+            style: const TextStyle(fontSize: 12, color: Color(0xFF1E293B)),
+            decoration: InputDecoration(
+              labelText: 'Edad',
+              labelStyle: const TextStyle(fontSize: 11),
+              filled: true,
+              fillColor: const Color(0xFFF8FAFC),
+              contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            items: const [
+              DropdownMenuItem(value: 'todos', child: Text('Todas las edades')),
+              DropdownMenuItem(value: 'menores', child: Text('👶 Menores (<18)')),
+              DropdownMenuItem(value: 'lactante_menor', child: Text('🍼 Lactante <1año')),
+              DropdownMenuItem(value: 'lactante_mayor', child: Text('👶 Lactante 1año')),
+              DropdownMenuItem(value: 'preescolar', child: Text('🧒 Preescolar 2-4a')),
+              DropdownMenuItem(value: 'escolar', child: Text('🎒 Escolar 5-11a')),
+              DropdownMenuItem(value: 'adolescente', child: Text('🧑 Adolescente 12-17')),
+              DropdownMenuItem(value: 'adulto', child: Text('🧑 Adulto 18-59')),
+              DropdownMenuItem(value: 'adulto_mayor', child: Text('👴 Adulto Mayor 60+')),
+            ],
+            onChanged: (v) {
+              setState(() {
+                _filtroGrupoEtario = v;
+                _paginaActual = 1;
+                _aplicarFiltrosLocales();
+              });
+            },
+          ),
+        );
+
+        final sexoFiltro = SizedBox(
+          height: 38,
+          child: DropdownButtonFormField<String>(
+            value: _filtroSexo,
+            isExpanded: true,
+            style: const TextStyle(fontSize: 12, color: Color(0xFF1E293B)),
+            decoration: InputDecoration(
+              labelText: 'Sexo',
+              labelStyle: const TextStyle(fontSize: 11),
+              filled: true,
+              fillColor: const Color(0xFFF8FAFC),
+              contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            items: const [
+              DropdownMenuItem(value: 'todos', child: Text('Todos')),
+              DropdownMenuItem(value: 'F', child: Text('Femenino')),
+              DropdownMenuItem(value: 'M', child: Text('Masculino')),
+            ],
+            onChanged: (v) {
+              setState(() {
+                _filtroSexo = v;
+                _paginaActual = 1;
+                _aplicarFiltrosLocales();
+              });
+            },
+          ),
+        );
+
+        return Container(
+          padding: isMobile
+              ? const EdgeInsets.fromLTRB(12, 6, 12, 10)
+              : const EdgeInsets.fromLTRB(20, 6, 20, 10),
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            border: Border(bottom: BorderSide(color: Color(0xFFE2E8F0))),
+          ),
+          child: isMobile
+              ? Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    buscador,
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Expanded(child: sectorFiltro),
+                        const SizedBox(width: 8),
+                        Expanded(child: etarioFiltro),
+                        const SizedBox(width: 8),
+                        SizedBox(width: 100, child: sexoFiltro),
+                        if (tieneFiltrosActivos) ...[
+                          const SizedBox(width: 4),
+                          IconButton(
+                            icon: const Icon(Icons.filter_alt_off_rounded, color: Colors.redAccent, size: 20),
+                            tooltip: 'Limpiar filtros',
+                            onPressed: _limpiarFiltros,
+                          ),
+                        ],
+                      ],
+                    ),
+                  ],
+                )
+              : Row(
+                  children: [
+                    Expanded(flex: 3, child: buscador),
+                    const SizedBox(width: 10),
+                    Expanded(flex: 2, child: sectorFiltro),
+                    const SizedBox(width: 10),
+                    Expanded(flex: 2, child: etarioFiltro),
+                    const SizedBox(width: 10),
+                    SizedBox(width: 110, child: sexoFiltro),
+                    if (tieneFiltrosActivos) ...[
+                      const SizedBox(width: 8),
+                      IconButton(
+                        icon: const Icon(Icons.filter_alt_off_rounded, color: Colors.redAccent, size: 20),
+                        tooltip: 'Limpiar filtros',
+                        onPressed: _limpiarFiltros,
+                      ),
+                    ],
+                  ],
                 ),
-              ),
-            ),
-          ),
-          const SizedBox(width: 10),
-
-          // Filtro Sector
-          Expanded(
-            flex: 2,
-            child: SizedBox(
-              height: 38,
-              child: DropdownButtonFormField<String>(
-                value: _filtroSector,
-                isExpanded: true,
-                style: const TextStyle(fontSize: 12, color: Color(0xFF1E293B)),
-                decoration: InputDecoration(
-                  labelText: 'Sector / Comunidad',
-                  labelStyle: const TextStyle(fontSize: 11),
-                  filled: true,
-                  fillColor: const Color(0xFFF8FAFC),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                ),
-                items: [
-                  const DropdownMenuItem(value: 'todos', child: Text('Todos los sectores')),
-                  ..._sectoresGuanipa.map((s) => DropdownMenuItem(value: s, child: Text(s, overflow: TextOverflow.ellipsis))),
-                ],
-                onChanged: (v) {
-                  setState(() {
-                    _filtroSector = v;
-                    _paginaActual = 1;
-                    _aplicarFiltrosLocales();
-                  });
-                },
-              ),
-            ),
-          ),
-          const SizedBox(width: 10),
-
-          // Filtro Grupo Etario
-          Expanded(
-            flex: 2,
-            child: SizedBox(
-              height: 38,
-              child: DropdownButtonFormField<String>(
-                value: _filtroGrupoEtario,
-                isExpanded: true,
-                style: const TextStyle(fontSize: 12, color: Color(0xFF1E293B)),
-                decoration: InputDecoration(
-                  labelText: 'Grupo Etario',
-                  labelStyle: const TextStyle(fontSize: 11),
-                  filled: true,
-                  fillColor: const Color(0xFFF8FAFC),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                ),
-                items: const [
-                  DropdownMenuItem(value: 'todos', child: Text('Todas las edades')),
-                  DropdownMenuItem(value: 'menores', child: Text('👶 Todos los menores (<18)')),
-                  DropdownMenuItem(value: 'lactante_menor', child: Text('🍼 Lactante Menor (<1 año)')),
-                  DropdownMenuItem(value: 'lactante_mayor', child: Text('👶 Lactante Mayor (1 año)')),
-                  DropdownMenuItem(value: 'preescolar', child: Text('🧒 Preescolar (2-4 años)')),
-                  DropdownMenuItem(value: 'escolar', child: Text('🎒 Escolar (5-11 años)')),
-                  DropdownMenuItem(value: 'adolescente', child: Text('🧑 Adolescente (12-17 años)')),
-                  DropdownMenuItem(value: 'adulto', child: Text('🧑 Adulto (18-59 años)')),
-                  DropdownMenuItem(value: 'adulto_mayor', child: Text('👴 Adulto Mayor (60+ años)')),
-                ],
-                onChanged: (v) {
-                  setState(() {
-                    _filtroGrupoEtario = v;
-                    _paginaActual = 1;
-                    _aplicarFiltrosLocales();
-                  });
-                },
-              ),
-            ),
-          ),
-          const SizedBox(width: 10),
-
-          // Filtro Sexo
-          SizedBox(
-            width: 110,
-            height: 38,
-            child: DropdownButtonFormField<String>(
-              value: _filtroSexo,
-              isExpanded: true,
-              style: const TextStyle(fontSize: 12, color: Color(0xFF1E293B)),
-              decoration: InputDecoration(
-                labelText: 'Sexo',
-                labelStyle: const TextStyle(fontSize: 11),
-                filled: true,
-                fillColor: const Color(0xFFF8FAFC),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-              ),
-              items: const [
-                DropdownMenuItem(value: 'todos', child: Text('Todos')),
-                DropdownMenuItem(value: 'F', child: Text('Femenino')),
-                DropdownMenuItem(value: 'M', child: Text('Masculino')),
-              ],
-              onChanged: (v) {
-                setState(() {
-                  _filtroSexo = v;
-                  _paginaActual = 1;
-                  _aplicarFiltrosLocales();
-                });
-              },
-            ),
-          ),
-
-          if (tieneFiltrosActivos) ...[
-            const SizedBox(width: 8),
-            IconButton(
-              icon: const Icon(Icons.filter_alt_off_rounded, color: Colors.redAccent, size: 20),
-              tooltip: 'Limpiar filtros',
-              onPressed: _limpiarFiltros,
-            ),
-          ],
-        ],
-      ),
+        );
+      },
     );
   }
 

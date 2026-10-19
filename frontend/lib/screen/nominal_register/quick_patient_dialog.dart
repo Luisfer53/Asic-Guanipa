@@ -298,59 +298,71 @@ class _QuickPatientDialogState extends State<QuickPatientDialog>
   // ─── UI ───────────────────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
-    return FadeTransition(
-      opacity: _fadeAnim,
-      child: Dialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 540),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              _buildHeader(),
-              Flexible(
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.fromLTRB(24, 0, 24, 8),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _buildModoToggle(),
-                      const SizedBox(height: 16),
-                      if (_modo == _ModoRegistro.titular) _buildCamposCedulaTitular(),
-                      if (_modo == _ModoRegistro.menor) _buildCamposRepresentante(),
-                      const SizedBox(height: 16),
-                      _buildCamposNombre(),
-                      const SizedBox(height: 12),
-                      _buildCamposSexoFecha(),
-                      const SizedBox(height: 12),
-                      _buildSeccionDireccion(),
-                      const SizedBox(height: 12),
-                      _buildSeccionContacto(),
-                      const SizedBox(height: 12),
-                      _buildCampoEsquema(),
-                      const SizedBox(height: 12),
-                      _buildSeccionDatosClinicosOpcionales(),
-                      if (_error != null) ...[
-                        const SizedBox(height: 10),
-                        _buildError(),
-                      ],
-                      const SizedBox(height: 16),
-                    ],
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final screenWidth = MediaQuery.of(context).size.width;
+        final isMobile = screenWidth < 480;
+        return FadeTransition(
+          opacity: _fadeAnim,
+          child: Dialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+            insetPadding: EdgeInsets.symmetric(
+              horizontal: isMobile ? 8 : 20,
+              vertical: isMobile ? 12 : 24,
+            ),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 540),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _buildHeader(isMobile: isMobile),
+                  Flexible(
+                    child: SingleChildScrollView(
+                      padding: EdgeInsets.fromLTRB(
+                        isMobile ? 14 : 24, 0,
+                        isMobile ? 14 : 24, 8,
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _buildModoToggle(isMobile: isMobile),
+                          const SizedBox(height: 16),
+                          if (_modo == _ModoRegistro.titular) _buildCamposCedulaTitular(),
+                          if (_modo == _ModoRegistro.menor) _buildCamposRepresentante(isMobile: isMobile),
+                          const SizedBox(height: 16),
+                          _buildCamposNombre(isMobile: isMobile),
+                          const SizedBox(height: 12),
+                          _buildCamposSexoFecha(isMobile: isMobile),
+                          const SizedBox(height: 12),
+                          _buildSeccionDireccion(isMobile: isMobile),
+                          const SizedBox(height: 12),
+                          _buildSeccionContacto(isMobile: isMobile),
+                          const SizedBox(height: 12),
+                          _buildCampoEsquema(),
+                          const SizedBox(height: 12),
+                          _buildSeccionDatosClinicosOpcionales(isMobile: isMobile),
+                          if (_error != null) ...[
+                            const SizedBox(height: 10),
+                            _buildError(),
+                          ],
+                          const SizedBox(height: 16),
+                        ],
+                      ),
+                    ),
                   ),
-                ),
+                  _buildFooter(isMobile: isMobile),
+                ],
               ),
-              _buildFooter(),
-            ],
+            ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 
-  Widget _buildHeader() {
+  Widget _buildHeader({bool isMobile = false}) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(24, 20, 16, 16),
+      padding: EdgeInsets.fromLTRB(isMobile ? 14 : 24, 16, 12, 14),
       decoration: const BoxDecoration(
         gradient: LinearGradient(
           colors: [Color(0xFF1565C0), Color(0xFF00897B)],
@@ -365,29 +377,29 @@ class _QuickPatientDialogState extends State<QuickPatientDialog>
       child: Row(
         children: [
           Container(
-            padding: const EdgeInsets.all(8),
+            padding: EdgeInsets.all(isMobile ? 6 : 8),
             decoration: BoxDecoration(
               color: Colors.white.withOpacity(0.2),
               borderRadius: BorderRadius.circular(10),
             ),
-            child: const Icon(Icons.person_add_rounded, color: Colors.white, size: 22),
+            child: Icon(Icons.person_add_rounded, color: Colors.white, size: isMobile ? 18 : 22),
           ),
-          const SizedBox(width: 12),
-          const Expanded(
+          const SizedBox(width: 10),
+          Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Nuevo Paciente — Alta Rápida',
+                  isMobile ? 'Alta Rápida' : 'Nuevo Paciente — Alta Rápida',
                   style: TextStyle(
                     color: Colors.white,
                     fontWeight: FontWeight.bold,
-                    fontSize: 16,
+                    fontSize: isMobile ? 14 : 16,
                   ),
                 ),
                 Text(
                   'Registro express · menos de 20 segundos',
-                  style: TextStyle(color: Colors.white70, fontSize: 11),
+                  style: const TextStyle(color: Colors.white70, fontSize: 11),
                 ),
               ],
             ),
@@ -402,7 +414,7 @@ class _QuickPatientDialogState extends State<QuickPatientDialog>
     );
   }
 
-  Widget _buildModoToggle() {
+  Widget _buildModoToggle({bool isMobile = false}) {
     return Container(
       margin: const EdgeInsets.only(top: 16),
       decoration: BoxDecoration(
@@ -413,16 +425,18 @@ class _QuickPatientDialogState extends State<QuickPatientDialog>
       child: Row(
         children: [
           _toggleTab(
-            label: 'Titular con Cédula',
+            label: isMobile ? 'Titular' : 'Titular con Cédula',
             icon: Icons.badge_rounded,
             activo: _modo == _ModoRegistro.titular,
             onTap: () => setState(() => _modo = _ModoRegistro.titular),
+            isMobile: isMobile,
           ),
           _toggleTab(
-            label: 'Menor / Dependiente',
+            label: isMobile ? 'Menor' : 'Menor / Dependiente',
             icon: Icons.child_care_rounded,
             activo: _modo == _ModoRegistro.menor,
             onTap: () => setState(() => _modo = _ModoRegistro.menor),
+            isMobile: isMobile,
           ),
         ],
       ),
@@ -434,13 +448,14 @@ class _QuickPatientDialogState extends State<QuickPatientDialog>
     required IconData icon,
     required bool activo,
     required VoidCallback onTap,
+    bool isMobile = false,
   }) {
     return Expanded(
       child: GestureDetector(
         onTap: onTap,
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 200),
-          padding: const EdgeInsets.symmetric(vertical: 10),
+          padding: EdgeInsets.symmetric(vertical: isMobile ? 12 : 10),
           decoration: BoxDecoration(
             color: activo ? _blue : Colors.transparent,
             borderRadius: BorderRadius.circular(11),
@@ -448,14 +463,17 @@ class _QuickPatientDialogState extends State<QuickPatientDialog>
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(icon, size: 16, color: activo ? Colors.white : Colors.grey.shade600),
+              Icon(icon, size: isMobile ? 18 : 16, color: activo ? Colors.white : Colors.grey.shade600),
               const SizedBox(width: 6),
-              Text(
-                label,
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: activo ? FontWeight.bold : FontWeight.normal,
-                  color: activo ? Colors.white : Colors.grey.shade700,
+              Flexible(
+                child: Text(
+                  label,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: isMobile ? 13 : 12,
+                    fontWeight: activo ? FontWeight.bold : FontWeight.normal,
+                    color: activo ? Colors.white : Colors.grey.shade700,
+                  ),
                 ),
               ),
             ],
@@ -509,7 +527,63 @@ class _QuickPatientDialogState extends State<QuickPatientDialog>
     );
   }
 
-  Widget _buildCamposRepresentante() {
+  Widget _buildCamposRepresentante({bool isMobile = false}) {
+    final ordenHijoWidget = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _label('Orden del Hijo'),
+        const SizedBox(height: 6),
+        Container(
+          decoration: BoxDecoration(
+            color: const Color(0xFFF1F5F9),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: const Color(0xFFCBD5E1)),
+          ),
+          child: DropdownButtonHideUnderline(
+            child: DropdownButton<int>(
+              value: _ordenHijo,
+              isExpanded: true,
+              items: List.generate(5, (i) => i + 1).map((n) => DropdownMenuItem(
+                value: n,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  child: Text('N$n — Hijo #$n'),
+                ),
+              )).toList(),
+              onChanged: (v) => setState(() => _ordenHijo = v!),
+            ),
+          ),
+        ),
+      ],
+    );
+
+    final idGeneradoWidget = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _label('ID que se generará'),
+        const SizedBox(height: 6),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 13),
+          decoration: BoxDecoration(
+            color: const Color(0xFFEFF6FF),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: const Color(0xFF93C5FD)),
+          ),
+          child: Text(
+            _cedulaRepCtrl.text.trim().isEmpty
+                ? 'V-xxxxxxxx-N$_ordenHijo'
+                : 'V-${_cedulaRepCtrl.text.trim()}-N$_ordenHijo',
+            style: const TextStyle(
+              fontFamily: 'monospace',
+              fontWeight: FontWeight.bold,
+              color: Color(0xFF1D4ED8),
+              fontSize: 13,
+            ),
+          ),
+        ),
+      ],
+    );
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -527,182 +601,176 @@ class _QuickPatientDialogState extends State<QuickPatientDialog>
         const SizedBox(height: 6),
         _inputField(ctrl: _nombreRepCtrl, hint: 'María González'),
         const SizedBox(height: 10),
-        Row(
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _label('Orden del Hijo'),
-                  const SizedBox(height: 6),
-                  Container(
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF1F5F9),
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: const Color(0xFFCBD5E1)),
-                    ),
-                    child: DropdownButtonHideUnderline(
-                      child: DropdownButton<int>(
-                        value: _ordenHijo,
-                        isExpanded: true,
-                        items: List.generate(5, (i) => i + 1).map((n) => DropdownMenuItem(
-                          value: n,
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 12),
-                            child: Text('N$n — Hijo #$n'),
-                          ),
-                        )).toList(),
-                        onChanged: (v) => setState(() => _ordenHijo = v!),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _label('ID que se generará'),
-                  const SizedBox(height: 6),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 13),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFEFF6FF),
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: const Color(0xFF93C5FD)),
-                    ),
-                    child: Text(
-                      _cedulaRepCtrl.text.trim().isEmpty
-                          ? 'V-xxxxxxxx-N$_ordenHijo'
-                          : 'V-${_cedulaRepCtrl.text.trim()}-N$_ordenHijo',
-                      style: const TextStyle(
-                        fontFamily: 'monospace',
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF1D4ED8),
-                        fontSize: 13,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
+        if (isMobile)
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              ordenHijoWidget,
+              const SizedBox(height: 10),
+              idGeneradoWidget,
+            ],
+          )
+        else
+          Row(
+            children: [
+              Expanded(child: ordenHijoWidget),
+              const SizedBox(width: 12),
+              Expanded(child: idGeneradoWidget),
+            ],
+          ),
       ],
     );
   }
 
-  Widget _buildCamposNombre() {
+  Widget _buildCamposNombre({bool isMobile = false}) {
+    Widget filaNombres = isMobile
+        ? Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _label('Primer Nombre *'),
+              const SizedBox(height: 6),
+              _inputField(ctrl: _nombre1Ctrl, hint: 'José'),
+              const SizedBox(height: 10),
+              _label('Segundo Nombre'),
+              const SizedBox(height: 6),
+              _inputField(ctrl: _nombre2Ctrl, hint: 'Andrés'),
+            ],
+          )
+        : Row(
+            children: [
+              Expanded(
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  _label('Primer Nombre *'),
+                  const SizedBox(height: 6),
+                  _inputField(ctrl: _nombre1Ctrl, hint: 'José'),
+                ]),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  _label('Segundo Nombre'),
+                  const SizedBox(height: 6),
+                  _inputField(ctrl: _nombre2Ctrl, hint: 'Andrés'),
+                ]),
+              ),
+            ],
+          );
+
+    Widget filaApellidos = isMobile
+        ? Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _label('Primer Apellido *'),
+              const SizedBox(height: 6),
+              _inputField(ctrl: _apellido1Ctrl, hint: 'González'),
+              const SizedBox(height: 10),
+              _label('Segundo Apellido'),
+              const SizedBox(height: 6),
+              _inputField(ctrl: _apellido2Ctrl, hint: 'Rodríguez'),
+            ],
+          )
+        : Row(
+            children: [
+              Expanded(
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  _label('Primer Apellido *'),
+                  const SizedBox(height: 6),
+                  _inputField(ctrl: _apellido1Ctrl, hint: 'González'),
+                ]),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  _label('Segundo Apellido'),
+                  const SizedBox(height: 6),
+                  _inputField(ctrl: _apellido2Ctrl, hint: 'Rodríguez'),
+                ]),
+              ),
+            ],
+          );
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          children: [
-            Expanded(
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                _label('Primer Nombre *'),
-                const SizedBox(height: 6),
-                _inputField(ctrl: _nombre1Ctrl, hint: 'José'),
-              ]),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                _label('Segundo Nombre'),
-                const SizedBox(height: 6),
-                _inputField(ctrl: _nombre2Ctrl, hint: 'Andrés'),
-              ]),
-            ),
-          ],
-        ),
+        filaNombres,
         const SizedBox(height: 10),
-        Row(
-          children: [
-            Expanded(
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                _label('Primer Apellido *'),
-                const SizedBox(height: 6),
-                _inputField(ctrl: _apellido1Ctrl, hint: 'González'),
-              ]),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                _label('Segundo Apellido'),
-                const SizedBox(height: 6),
-                _inputField(ctrl: _apellido2Ctrl, hint: 'Rodríguez'),
-              ]),
-            ),
-          ],
-        ),
+        filaApellidos,
       ],
     );
   }
 
-  Widget _buildCamposSexoFecha() {
-    return Row(
+  Widget _buildCamposSexoFecha({bool isMobile = false}) {
+    final sexoWidget = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Sexo
-        Expanded(
-          flex: 2,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _label('Sexo *'),
-              const SizedBox(height: 6),
-              Row(
-                children: [
-                  _sexoChip('M', 'Masculino', Icons.male_rounded),
-                  const SizedBox(width: 8),
-                  _sexoChip('F', 'Femenino', Icons.female_rounded),
-                ],
-              ),
-            ],
-          ),
+        _label('Sexo *'),
+        const SizedBox(height: 6),
+        Row(
+          children: [
+            _sexoChip('M', 'Masculino', Icons.male_rounded),
+            const SizedBox(width: 8),
+            _sexoChip('F', 'Femenino', Icons.female_rounded),
+          ],
         ),
-        const SizedBox(width: 12),
-        // Fecha de nacimiento
-        Expanded(
-          flex: 3,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _label('Fecha de Nacimiento'),
-              const SizedBox(height: 6),
-              InkWell(
-                onTap: _pickFecha,
-                borderRadius: BorderRadius.circular(10),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFF1F5F9),
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: const Color(0xFFCBD5E1)),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(Icons.calendar_today_rounded, size: 16, color: Colors.grey.shade600),
-                      const SizedBox(width: 8),
-                      Text(
-                        _fechaNac != null
-                            ? '${_fechaNac!.day.toString().padLeft(2, '0')}/'
-                                '${_fechaNac!.month.toString().padLeft(2, '0')}/'
-                                '${_fechaNac!.year}'
-                            : 'DD/MM/AAAA',
-                        style: TextStyle(
-                          color: _fechaNac != null ? Colors.black87 : Colors.grey.shade500,
-                          fontSize: 13,
-                        ),
-                      ),
-                    ],
+      ],
+    );
+
+    final fechaWidget = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _label('Fecha de Nacimiento'),
+        const SizedBox(height: 6),
+        InkWell(
+          onTap: _pickFecha,
+          borderRadius: BorderRadius.circular(10),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 13),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF1F5F9),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: const Color(0xFFCBD5E1)),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.calendar_today_rounded, size: 16, color: Colors.grey.shade600),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    _fechaNac != null
+                        ? '${_fechaNac!.day.toString().padLeft(2, '0')}/'
+                            '${_fechaNac!.month.toString().padLeft(2, '0')}/'
+                            '${_fechaNac!.year}'
+                        : 'DD/MM/AAAA',
+                    style: TextStyle(
+                      color: _fechaNac != null ? Colors.black87 : Colors.grey.shade500,
+                      fontSize: 13,
+                    ),
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
+      ],
+    );
+
+    if (isMobile) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          sexoWidget,
+          const SizedBox(height: 12),
+          fechaWidget,
+        ],
+      );
+    }
+
+    return Row(
+      children: [
+        Expanded(flex: 2, child: sexoWidget),
+        const SizedBox(width: 12),
+        Expanded(flex: 3, child: fechaWidget),
       ],
     );
   }
@@ -740,7 +808,111 @@ class _QuickPatientDialogState extends State<QuickPatientDialog>
   }
 
   /// Sección de dirección completa claramente visible
-  Widget _buildSeccionDireccion() {
+  Widget _buildSeccionDireccion({bool isMobile = false}) {
+    final parroquiaDropdown = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _label('Parroquia'),
+        const SizedBox(height: 6),
+        Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: const Color(0xFFCBD5E1)),
+          ),
+          child: DropdownButtonHideUnderline(
+            child: DropdownButton<String>(
+              value: _parroquiaSeleccionada,
+              hint: const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 10),
+                child: Text('Parroquia...', style: TextStyle(fontSize: 12)),
+              ),
+              isExpanded: true,
+              items: _parroquiasGuanipa
+                  .map((p) => DropdownMenuItem(
+                        value: p,
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 10),
+                          child: Text(
+                            p,
+                            style: const TextStyle(fontSize: 12),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ))
+                  .toList(),
+              onChanged: (v) => setState(() => _parroquiaSeleccionada = v),
+            ),
+          ),
+        ),
+      ],
+    );
+
+    final sectorDropdown = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _label('Sector / Comunidad'),
+        const SizedBox(height: 6),
+        Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: const Color(0xFFCBD5E1)),
+          ),
+          child: DropdownButtonHideUnderline(
+            child: DropdownButton<String>(
+              value: _sectorSeleccionado,
+              hint: const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 10),
+                child: Text('Sector...', style: TextStyle(fontSize: 12)),
+              ),
+              isExpanded: true,
+              items: _sectoresGuanipa
+                  .map((s) => DropdownMenuItem(
+                        value: s,
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 10),
+                          child: Text(
+                            s,
+                            style: const TextStyle(fontSize: 12),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ))
+                  .toList(),
+              onChanged: (v) => setState(() => _sectorSeleccionado = v),
+            ),
+          ),
+        ),
+      ],
+    );
+
+    final calleWidget = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _label('Calle / Avenida'),
+        const SizedBox(height: 6),
+        _inputField(
+          ctrl: _calleCtrl,
+          hint: 'Ej: Av. Bicentenario',
+          prefixIcon: Icons.signpost_outlined,
+        ),
+      ],
+    );
+
+    final numeroCasaWidget = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _label('Número / Casa'),
+        const SizedBox(height: 6),
+        _inputField(
+          ctrl: _numeroCasaCtrl,
+          hint: 'Ej: Casa 12',
+          prefixIcon: Icons.home_outlined,
+        ),
+      ],
+    );
+
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
@@ -774,29 +946,55 @@ class _QuickPatientDialogState extends State<QuickPatientDialog>
           ),
           const SizedBox(height: 12),
           // Fila: Parroquia y Sector
-          Row(
-            children: [
-              Expanded(
-                flex: 1,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _label('Parroquia'),
-                    const SizedBox(height: 6),
-                    Container(
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: const Color(0xFFCBD5E1)),
-                      ),
-                      child: DropdownButtonHideUnderline(
-                        child: DropdownButton<String>(
-                          value: _parroquiaSeleccionada,
-                          hint: const Padding(
-                            padding: EdgeInsets.symmetric(horizontal: 10),
-                            child: Text('Parroquia...', style: TextStyle(fontSize: 12)),
-                          ),
-                          isExpanded: true,
+          if (isMobile)
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                parroquiaDropdown,
+                const SizedBox(height: 10),
+                sectorDropdown,
+              ],
+            )
+          else
+            Row(
+              children: [
+                Expanded(flex: 1, child: parroquiaDropdown),
+                const SizedBox(width: 10),
+                Expanded(flex: 1, child: sectorDropdown),
+              ],
+            ),
+          const SizedBox(height: 10),
+          // Fila: Calle y Casa
+          if (isMobile)
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                calleWidget,
+                const SizedBox(height: 10),
+                numeroCasaWidget,
+              ],
+            )
+          else
+            Row(
+              children: [
+                Expanded(flex: 3, child: calleWidget),
+                const SizedBox(width: 10),
+                Expanded(flex: 2, child: numeroCasaWidget),
+              ],
+            ),
+          const SizedBox(height: 10),
+          // Punto de referencia
+          _label('Punto de Referencia'),
+          const SizedBox(height: 6),
+          _inputField(
+            ctrl: _puntoRefCtrl,
+            hint: 'Ej: Cerca de la plaza / frente a la bodega',
+            prefixIcon: Icons.place_outlined,
+          ),
+        ],
+      ),
+    );
+  }
                           items: _parroquiasGuanipa
                               .map((p) => DropdownMenuItem(
                                     value: p,
@@ -913,7 +1111,35 @@ class _QuickPatientDialogState extends State<QuickPatientDialog>
   }
 
   /// Sección de contacto con Teléfono y Correo Electrónico
-  Widget _buildSeccionContacto() {
+  Widget _buildSeccionContacto({bool isMobile = false}) {
+    final telWidget = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _label('Teléfono (opcional)'),
+        const SizedBox(height: 6),
+        _inputField(
+          ctrl: _telCtrl,
+          hint: '0416-1234567',
+          inputType: TextInputType.phone,
+          prefixIcon: Icons.phone_rounded,
+        ),
+      ],
+    );
+
+    final correoWidget = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _label('Correo Electrónico (opcional)'),
+        const SizedBox(height: 6),
+        _inputField(
+          ctrl: _correoCtrl,
+          hint: 'ejemplo@correo.com',
+          inputType: TextInputType.emailAddress,
+          prefixIcon: Icons.email_outlined,
+        ),
+      ],
+    );
+
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
@@ -946,43 +1172,23 @@ class _QuickPatientDialogState extends State<QuickPatientDialog>
             ],
           ),
           const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                flex: 1,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _label('Teléfono (opcional)'),
-                    const SizedBox(height: 6),
-                    _inputField(
-                      ctrl: _telCtrl,
-                      hint: '0416-1234567',
-                      inputType: TextInputType.phone,
-                      prefixIcon: Icons.phone_rounded,
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                flex: 1,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _label('Correo Electrónico (opcional)'),
-                    const SizedBox(height: 6),
-                    _inputField(
-                      ctrl: _correoCtrl,
-                      hint: 'ejemplo@correo.com',
-                      inputType: TextInputType.emailAddress,
-                      prefixIcon: Icons.email_outlined,
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
+          if (isMobile)
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                telWidget,
+                const SizedBox(height: 10),
+                correoWidget,
+              ],
+            )
+          else
+            Row(
+              children: [
+                Expanded(flex: 1, child: telWidget),
+                const SizedBox(width: 10),
+                Expanded(flex: 1, child: correoWidget),
+              ],
+            ),
         ],
       ),
     );
@@ -1050,9 +1256,12 @@ class _QuickPatientDialogState extends State<QuickPatientDialog>
     );
   }
 
-  Widget _buildFooter() {
+  Widget _buildFooter({bool isMobile = false}) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(24, 12, 24, 20),
+      padding: EdgeInsets.fromLTRB(
+        isMobile ? 14 : 24, 12,
+        isMobile ? 14 : 24, isMobile ? 16 : 20,
+      ),
       decoration: const BoxDecoration(
         color: Color(0xFFF8FAFC),
         borderRadius: BorderRadius.only(
@@ -1061,36 +1270,68 @@ class _QuickPatientDialogState extends State<QuickPatientDialog>
         ),
         border: Border(top: BorderSide(color: Color(0xFFE2E8F0))),
       ),
-      child: Row(
-        children: [
-          TextButton(
-            onPressed: _saving ? null : () => Navigator.of(context).pop(),
-            child: const Text('Cancelar'),
-          ),
-          const Spacer(),
-          ElevatedButton.icon(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: _teal,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 13),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              elevation: 2,
+      child: isMobile
+          ? Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: _teal,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    elevation: 2,
+                  ),
+                  onPressed: _saving ? null : _guardar,
+                  icon: _saving
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                        )
+                      : const Icon(Icons.flash_on_rounded, size: 18),
+                  label: Text(
+                    _saving ? 'Registrando...' : 'Registrar Paciente',
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                TextButton(
+                  onPressed: _saving ? null : () => Navigator.of(context).pop(),
+                  child: const Text('Cancelar'),
+                ),
+              ],
+            )
+          : Row(
+              children: [
+                TextButton(
+                  onPressed: _saving ? null : () => Navigator.of(context).pop(),
+                  child: const Text('Cancelar'),
+                ),
+                const Spacer(),
+                ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: _teal,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 13),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    elevation: 2,
+                  ),
+                  onPressed: _saving ? null : _guardar,
+                  icon: _saving
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                        )
+                      : const Icon(Icons.flash_on_rounded, size: 18),
+                  label: Text(
+                    _saving ? 'Registrando...' : 'Registrar Paciente',
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ],
             ),
-            onPressed: _saving ? null : _guardar,
-            icon: _saving
-                ? const SizedBox(
-                    width: 16,
-                    height: 16,
-                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                  )
-                : const Icon(Icons.flash_on_rounded, size: 18),
-            label: Text(
-              _saving ? 'Registrando...' : 'Registrar Paciente',
-              style: const TextStyle(fontWeight: FontWeight.bold),
-            ),
-          ),
-        ],
-      ),
     );
   }
 
@@ -1165,7 +1406,7 @@ class _QuickPatientDialogState extends State<QuickPatientDialog>
     }
   }
 
-  Widget _buildSeccionDatosClinicosOpcionales() {
+  Widget _buildSeccionDatosClinicosOpcionales({bool isMobile = false}) {
     return Container(
       decoration: BoxDecoration(
         color: _mostrarDatosClinicos ? Colors.blue.shade50.withValues(alpha: 0.5) : const Color(0xFFF8FAFC),
@@ -1181,7 +1422,7 @@ class _QuickPatientDialogState extends State<QuickPatientDialog>
             onTap: () => setState(() => _mostrarDatosClinicos = !_mostrarDatosClinicos),
             borderRadius: BorderRadius.circular(12),
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
               child: Row(
                 children: [
                   Icon(
@@ -1215,63 +1456,109 @@ class _QuickPatientDialogState extends State<QuickPatientDialog>
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            _label('Peso (kg)'),
-                            _inputField(
-                              ctrl: _pesoCtrl,
-                              hint: 'Ej: 65.5',
-                              inputType: const TextInputType.numberWithOptions(decimal: true),
-                              prefixIcon: Icons.monitor_weight_outlined,
-                            ),
-                          ],
+                  if (isMobile)
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _label('Peso (kg)'),
+                        _inputField(
+                          ctrl: _pesoCtrl,
+                          hint: 'Ej: 65.5',
+                          inputType: const TextInputType.numberWithOptions(decimal: true),
+                          prefixIcon: Icons.monitor_weight_outlined,
                         ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            _label('Grupo Sanguíneo'),
-                            DropdownButtonFormField<String>(
-                              initialValue: _tipoSangre,
-                              isExpanded: true,
-                              decoration: InputDecoration(
-                                filled: true,
-                                fillColor: const Color(0xFFF1F5F9),
-                                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                                isDense: true,
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(10),
-                                  borderSide: const BorderSide(color: Color(0xFFCBD5E1)),
-                                ),
-                                enabledBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(10),
-                                  borderSide: const BorderSide(color: Color(0xFFCBD5E1)),
-                                ),
+                        const SizedBox(height: 10),
+                        _label('Grupo Sanguíneo'),
+                        DropdownButtonFormField<String>(
+                          initialValue: _tipoSangre,
+                          isExpanded: true,
+                          decoration: InputDecoration(
+                            filled: true,
+                            fillColor: const Color(0xFFF1F5F9),
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                            isDense: true,
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(10),
+                              borderSide: const BorderSide(color: Color(0xFFCBD5E1)),
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(10),
+                              borderSide: const BorderSide(color: Color(0xFFCBD5E1)),
+                            ),
+                          ),
+                          hint: const Text('Seleccione', style: TextStyle(fontSize: 13)),
+                          items: const [
+                            DropdownMenuItem(value: 'O+', child: Text('O+')),
+                            DropdownMenuItem(value: 'O-', child: Text('O-')),
+                            DropdownMenuItem(value: 'A+', child: Text('A+')),
+                            DropdownMenuItem(value: 'A-', child: Text('A-')),
+                            DropdownMenuItem(value: 'B+', child: Text('B+')),
+                            DropdownMenuItem(value: 'B-', child: Text('B-')),
+                            DropdownMenuItem(value: 'AB+', child: Text('AB+')),
+                            DropdownMenuItem(value: 'AB-', child: Text('AB-')),
+                          ],
+                          onChanged: (val) => setState(() => _tipoSangre = val),
+                        ),
+                      ],
+                    )
+                  else
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              _label('Peso (kg)'),
+                              _inputField(
+                                ctrl: _pesoCtrl,
+                                hint: 'Ej: 65.5',
+                                inputType: const TextInputType.numberWithOptions(decimal: true),
+                                prefixIcon: Icons.monitor_weight_outlined,
                               ),
-                              hint: const Text('Seleccione', style: TextStyle(fontSize: 13)),
-                              items: const [
-                                DropdownMenuItem(value: 'O+', child: Text('O+')),
-                                DropdownMenuItem(value: 'O-', child: Text('O-')),
-                                DropdownMenuItem(value: 'A+', child: Text('A+')),
-                                DropdownMenuItem(value: 'A-', child: Text('A-')),
-                                DropdownMenuItem(value: 'B+', child: Text('B+')),
-                                DropdownMenuItem(value: 'B-', child: Text('B-')),
-                                DropdownMenuItem(value: 'AB+', child: Text('AB+')),
-                                DropdownMenuItem(value: 'AB-', child: Text('AB-')),
-                              ],
-                              onChanged: (val) => setState(() => _tipoSangre = val),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
-                      ),
-                    ],
-                  ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              _label('Grupo Sanguíneo'),
+                              DropdownButtonFormField<String>(
+                                initialValue: _tipoSangre,
+                                isExpanded: true,
+                                decoration: InputDecoration(
+                                  filled: true,
+                                  fillColor: const Color(0xFFF1F5F9),
+                                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                                  isDense: true,
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(10),
+                                    borderSide: const BorderSide(color: Color(0xFFCBD5E1)),
+                                  ),
+                                  enabledBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(10),
+                                    borderSide: const BorderSide(color: Color(0xFFCBD5E1)),
+                                  ),
+                                ),
+                                hint: const Text('Seleccione', style: TextStyle(fontSize: 13)),
+                                items: const [
+                                  DropdownMenuItem(value: 'O+', child: Text('O+')),
+                                  DropdownMenuItem(value: 'O-', child: Text('O-')),
+                                  DropdownMenuItem(value: 'A+', child: Text('A+')),
+                                  DropdownMenuItem(value: 'A-', child: Text('A-')),
+                                  DropdownMenuItem(value: 'B+', child: Text('B+')),
+                                  DropdownMenuItem(value: 'B-', child: Text('B-')),
+                                  DropdownMenuItem(value: 'AB+', child: Text('AB+')),
+                                  DropdownMenuItem(value: 'AB-', child: Text('AB-')),
+                                ],
+                                onChanged: (val) => setState(() => _tipoSangre = val),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
                   const SizedBox(height: 10),
                   _label('Alergias Conocidas'),
                   _inputField(
