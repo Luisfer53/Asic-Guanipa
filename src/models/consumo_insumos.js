@@ -1,7 +1,10 @@
 'use strict';
-const {
-    Model
-} = require('sequelize');
+const { Model } = require('sequelize');
+
+/**
+ * Modelo ConsumoInsumo — sin cambios estructurales mayores,
+ * actualizado para coherencia con el nuevo esquema (sin timestamps).
+ */
 module.exports = (sequelize, DataTypes) => {
     class ConsumoInsumo extends Model {
         static associate(models) {
@@ -15,22 +18,22 @@ module.exports = (sequelize, DataTypes) => {
             });
         }
     }
+
     ConsumoInsumo.init({
+        id_consumo: {
+            type: DataTypes.INTEGER,
+            primaryKey: true,
+            autoIncrement: true
+        },
         id_atencion: {
             type: DataTypes.INTEGER,
             allowNull: false,
-            references: {
-                model: 'atenciones_diarias',
-                key: 'id'
-            }
+            references: { model: 'atenciones_diarias', key: 'id_atencion' }
         },
         id_lote_insumo: {
             type: DataTypes.INTEGER,
             allowNull: false,
-            references: {
-                model: 'lotes_insumos',
-                key: 'id'
-            }
+            references: { model: 'lotes_insumos', key: 'id_lote_insumo' }
         },
         cantidad_usada: {
             type: DataTypes.INTEGER,
@@ -41,7 +44,8 @@ module.exports = (sequelize, DataTypes) => {
         modelName: 'ConsumoInsumo',
         tableName: 'consumo_insumos',
         underscored: true,
-        timestamps: true
+        timestamps: false
     });
+
     return ConsumoInsumo;
 };

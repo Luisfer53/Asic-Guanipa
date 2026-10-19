@@ -1,126 +1,100 @@
 'use strict';
 const { Model } = require('sequelize');
-const { encrypt, decrypt } = require('../utils/encryption');
 
-// Campos sensibles que se cifran en reposo
-const ENCRYPTED_FIELDS = [
-    'nombre',
-    'apellido',
-    'cedula',
-    'telefono',
-    'direccion',
-    'nombre_representante',
-    'apellido_representante',
-    'cedula_representante',
-    'telefono_representante',
-    'direccion_representante'
-];
-
+/**
+ * Modelo Paciente — ahora normalizado.
+ * Los datos personales viven en la tabla `personas` (Persona).
+ * Aquí solo se almacenan los datos clínicos propios del paciente.
+ */
 module.exports = (sequelize, DataTypes) => {
     class Paciente extends Model {
         static associate(models) {
+            // Datos personales del paciente
+            Paciente.belongsTo(models.Persona, {
+                foreignKey: 'id_persona',
+                as: 'persona'
+            });
+            // Representante legal (para menores) — también es una Persona
+            Paciente.belongsTo(models.Persona, {
+                foreignKey: 'id_representante',
+                as: 'representante'
+            });
+            // Atenciones médicas
             Paciente.hasMany(models.AtencionDiaria, {
-                foreignKey: 'paciente_id',
+                foreignKey: 'id_paciente',
                 as: 'atenciones'
             });
         }
 
-        // Los getters han sido movidos a la configuración del modelo
-
-        // ─── toJSON: se asegura de devolver los datos descifrados en las respuestas API
-        toJSON() {
-            // super.toJSON() ya ejecuta los getters del modelo, los cuales llaman a decrypt()
-            return super.toJSON();
+        // Helper: nombre completo calculado
+        get nombreCompleto() {
+            const p = this.persona;
+            if (!p) return '';
+            return [p.nombre1, p.nombre2, p.apellido1, p.apellido2]
+                .filter(Boolean)
+                .join(' ');
         }
     }
 
     Paciente.init({
-        nombre: {
-            type: DataTypes.TEXT,      // TEXT para acomodar texto cifrado
-            allowNull: false,
-            get() { return decrypt(this.getDataValue('nombre')); }
+        id_paciente: {
+            type: DataTypes.INTEGER,
+            primaryKey: true,
+            autoIncrement: true
         },
-        apellido: {
-            type: DataTypes.TEXT,
+        id_persona: {
+            type: DataTypes.INTEGER,
             allowNull: false,
-            get() { return decrypt(this.getDataValue('apellido')); }
+            unique: true,
+            references: { model: 'personas', key: 'id_persona' }
         },
-        cedula: {
-            type: DataTypes.TEXT,
+        id_representante: {
+            type: DataTypes.INTEGER,
             allowNull: true,
-            get() { return decrypt(this.getDataValue('cedula')); }
-            // Sin unique: true → la unicidad se valida a nivel de aplicación
+            references: { model: 'personas', key: 'id_persona' }
         },
-        fecha_nacimiento: {
+        parentesco_representante: {
+            type: DataTypes.STRING(50),
+            allowNull: true
+        },
+        fecha_registro: {
             type: DataTypes.DATEONLY,
             allowNull: true
         },
-        sexo: {
-            type: DataTypes.ENUM('M', 'F'),
-            allowNull: false
+        peso: {
+            type: DataTypes.DECIMAL(5, 2),
+            allowNull: true
         },
-        telefono: {
-            type: DataTypes.TEXT,
-            allowNull: true,
-            get() { return decrypt(this.getDataValue('telefono')); }
+        tipo_sangre: {
+            type: DataTypes.STRING(5),
+            allowNull: true
         },
-        direccion: {
+        alergias: {
             type: DataTypes.TEXT,
-            allowNull: true,
-            get() { return decrypt(this.getDataValue('direccion')); }
+            allowNull: true
         },
-        nombre_representante: {
+        enfermedades_cronicas: {
             type: DataTypes.TEXT,
-            allowNull: true,
-            get() { return decrypt(this.getDataValue('nombre_representante')); }
+            allowNull: true
         },
-        apellido_representante: {
+        vacunas: {
             type: DataTypes.TEXT,
-            allowNull: true,
-            get() { return decrypt(this.getDataValue('apellido_representante')); }
+            allowNull: true
         },
-        cedula_representante: {
+        discapacidad: {
             type: DataTypes.TEXT,
-            allowNull: true,
-            get() { return decrypt(this.getDataValue('cedula_representante')); }
+            allowNull: true
         },
-        telefono_representante: {
+        antecedentes_familiares: {
             type: DataTypes.TEXT,
-            allowNull: true,
-            get() { return decrypt(this.getDataValue('telefono_representante')); }
-        },
-        direccion_representante: {
-            type: DataTypes.TEXT,
-            allowNull: true,
-            get() { return decrypt(this.getDataValue('direccion_representante')); }
+            allowNull: true
         }
     }, {
         sequelize,
         modelName: 'Paciente',
+        tableName: 'pacientes',
         underscored: true,
-        timestamps: true,
-        hooks: {
-            // ─── Cifrar antes de insertar ─────────────────────────────────────
-            beforeCreate(paciente) {
-                for (const field of ENCRYPTED_FIELDS) {
-                    const val = paciente.getDataValue(field);
-                    if (val !== null && val !== undefined && val !== '') {
-                        paciente.setDataValue(field, encrypt(val));
-                    }
-                }
-            },
-            // ─── Cifrar sólo los campos modificados al actualizar ─────────────
-            beforeUpdate(paciente) {
-                for (const field of ENCRYPTED_FIELDS) {
-                    if (paciente.changed(field)) {
-                        const val = paciente.getDataValue(field);
-                        if (val !== null && val !== undefined && val !== '') {
-                            paciente.setDataValue(field, encrypt(val));
-                        }
-                    }
-                }
-            }
-        }
+        timestamps: false
     });
 
     return Paciente;

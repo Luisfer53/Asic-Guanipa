@@ -3,6 +3,27 @@ node_modules/
 
 # Environment variables
 .env
+.env.*
+!.env.example
+
+# Large binaries, installers and tools
+cloudflared
+*.apk
+*.aab
+*.msi
+*.exe
+downloads/
+!downloads/.gitkeep
+
+# External SDKs (Flutter SDK repo cloned locally)
+flutter/
+
+# Temporary and Scratch files/folders
+scratch/
+capturas_interfaz/
+*.tmp
+*.bak
+*.old
 
 # Logs
 logs/
@@ -13,17 +34,23 @@ npm-debug.log*
 .DS_Store
 Thumbs.db
 
-# IDE
+# IDE & Editors
 .vscode/
 .idea/
 *.swp
 *.swo
 
-# Testing
+# Testing & Coverage
 coverage/
+/coverage
 
-# Production
+# Production & Build outputs
 dist/
 build/
-
-/coverage
+frontend/build/
+frontend/.dart_tool/
+frontend/.flutter-plugins
+frontend/.flutter-plugins-dependencies
+frontend/.pub-cache/
+frontend/.pub/
+public/web/

@@ -14,6 +14,8 @@ router.post('/register', verifyToken, isAdmin, validateRegister, validate, authC
 
 router.post('/login', validateLogin, validate, authController.login);
 
+router.post('/logout', verifyToken, authController.logout);
+
 router.post('/forgot-password', validateForgotPassword, validate, authController.forgotPassword);
 
 router.post('/reset-password', validateResetPassword, validate, authController.resetPassword);
@@ -25,5 +27,7 @@ router.get('/users', verifyToken, isAdmin, authController.getAllUsers);
 router.put('/users/:id', verifyToken, isAdmin, authController.updateUser);
 
 router.delete('/users/:id', verifyToken, isAdmin, authController.deleteUser);
+router.patch('/users/:id/toggle-activo', verifyToken, isAdmin, authController.toggleActivo);
+router.get('/bitacora', [verifyToken, isAdmin], authController.getBitacora);
 
 module.exports = router;

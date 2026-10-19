@@ -171,6 +171,14 @@ module.exports = {
                     key: 'id'
                 }
             },
+            centro: {
+                type: Sequelize.STRING(100),
+                allowNull: true
+            },
+            dosis: {
+                type: Sequelize.STRING(50),
+                allowNull: true
+            },
             created_at: {
                 allowNull: false,
                 type: Sequelize.DATE

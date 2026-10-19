@@ -8,13 +8,13 @@ Sistema completo de autenticación backend con Node.js, Express y PostgreSQL que
 - ✅ Validación de datos
 - ✅ Rutas protegidas
 
-## 📋 Requisitos Previos
+##   Requisitos Previos
 
 - **Node.js** (v14 o superior) - [Descargar aquí](https://nodejs.org/)
 - **PostgreSQL** (v12 o superior) - [Descargar aquí](https://www.postgresql.org/download/)
 - **npm** (viene con Node.js)
 
-## 🚀 Instalación
+##  Instalación
 
 ### 1. Clonar o descargar el proyecto
 
@@ -113,11 +113,11 @@ Deberías ver:
 
 ```
 ══════════════════════════════════════════════════
-🚀 Servidor corriendo en http://localhost:3000
-══════════════════════════════════════════════════
+ Servidor corriendo en http://localhost:3000
+════════════════════════════════════════════════
 ```
 
-## 📡 API Endpoints
+##  API Endpoints
 
 ### 1. Registro de Usuario
 
@@ -243,16 +243,16 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 }
 ```
 
-## 🔒 Seguridad
+##  Seguridad
 
-- ✅ **Contraseñas encriptadas**: Usando bcrypt con salt rounds = 10
-- ✅ **JWT para autenticación**: Tokens seguros con expiración configurable
-- ✅ **Validación de datos**: Express-validator para validar todas las entradas
-- ✅ **Tokens de recuperación**: SHA-256 hash para tokens de recuperación
-- ✅ **Variables de entorno**: Credenciales sensibles en archivos .env
-- ✅ **CORS habilitado**: Para permitir peticiones desde otros dominios
+-  **Contraseñas encriptadas**: Usando bcrypt con salt rounds = 10
+-  **JWT para autenticación**: Tokens seguros con expiración configurable
+-  **Validación de datos**: Express-validator para validar todas las entradas
+-  **Tokens de recuperación**: SHA-256 hash para tokens de recuperación
+-  **Variables de entorno**: Credenciales sensibles en archivos .env
+-  **CORS habilitado**: Para permitir peticiones desde otros dominios
 
-## 🧪 Probando la API
+##  Probando la API
 
 ### Usando cURL
 
@@ -279,7 +279,7 @@ curl -X POST http://localhost:3000/api/auth/login \
    - Key: `Authorization`
    - Value: `Bearer TU_TOKEN_AQUI`
 
-## 📁 Estructura del Proyecto
+##  Estructura del Proyecto
 
 ```
 Proyecto cdi/
@@ -301,12 +301,12 @@ Proyecto cdi/
 └── .gitignore                    # Archivos ignorados por Git
 ```
 
-## ⚠️ Solución de Problemas
+##  Solución de Problemas
 
 ### Error de conexión a PostgreSQL
 
 ```
-❌ Error en la conexión a PostgreSQL
+Error en la conexión a PostgreSQL
 ```
 
 **Solución:**
@@ -329,7 +329,7 @@ Proyecto cdi/
   - Email: formato válido
   - Password: mínimo 6 caracteres, incluye mayúscula, minúscula y número
 
-## 📧 Configuración de Email (Opcional)
+## Configuración de Email (Opcional)
 
 Para habilitar el envío real de emails de recuperación:
 
@@ -346,17 +346,14 @@ SMTP_USER=tu_email@gmail.com
 SMTP_PASSWORD=tu_contraseña_de_app_de_16_digitos
 ```
 
-## 📝 Notas Adicionales
+##  Notas Adicionales
 
 - Las contraseñas **nunca** se almacenan en texto plano
 - Los tokens JWT expiran según `JWT_EXPIRE` (por defecto 24h)
 - Los tokens de recuperación expiran en 1 hora
 - En desarrollo, los tokens de recuperación se muestran en la consola
 
-## 🤝 Contribuir
 
-Si encuentras bugs o quieres agregar features, ¡siéntete libre de hacerlo!
-
-## 📄 Licencia
+##  Licencia
 
 ISC

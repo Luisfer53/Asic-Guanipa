@@ -14,17 +14,17 @@ const validateRegister = [
         .normalizeEmail(),
     body('password')
         .isLength({ min: 6 })
-        .withMessage('La contraseña debe tener al menos 6 caracteres')
-        .matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/)
-        .withMessage('La contraseña debe contener al menos una mayúscula, una minúscula y un número'),
+        .withMessage('La contraseña debe tener al menos 6 caracteres'),
 ];
 
 const validateLogin = [
-    body('email')
-        .trim()
-        .isEmail()
-        .withMessage('Debe proporcionar un email válido')
-        .normalizeEmail(),
+    body().custom((value, { req }) => {
+        const identifier = req.body.login || req.body.username || req.body.email;
+        if (!identifier || (typeof identifier === 'string' && identifier.trim() === '')) {
+            throw new Error('Debe proporcionar su usuario o correo electrónico');
+        }
+        return true;
+    }),
     body('password')
         .notEmpty()
         .withMessage('La contraseña es requerida'),
@@ -52,9 +52,11 @@ const validateResetPassword = [
 const validate = (req, res, next) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
+        const errorList = errors.array();
         return res.status(400).json({
             success: false,
-            errors: errors.array()
+            message: errorList[0] ? errorList[0].msg : 'Error de validación',
+            errors: errorList
         });
     }
     next();

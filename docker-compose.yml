@@ -1,8 +1,28 @@
-version: "3"
 services:
-  api-server:
+  db-postgres:
+    restart: unless-stopped
+    image: postgres:17-alpine
+    ports:
+      - "5434:5432"
+    environment:
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${DB_NAME}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    volumes:
+      - db:/var/lib/postgresql/data
 
+  api-server:
+    restart: unless-stopped
     env_file: .env
+    environment:
+      DB_HOST: db-postgres
+      DB_PORT: 5432
     build:
       context: ./
       dockerfile: Dockerfile
@@ -11,21 +31,10 @@ services:
       - "${PORT}:${PORT}"
     volumes:
       - "./:/app"
-    links:
-      - db-postgres
-
+      - /app/node_modules
     depends_on:
-      - db-postgres
-  db-postgres:
-    image: postgres:17-alpine
-    ports:
-      - "5434:5432"
-    environment:
-      POSTGRES_USER: ${DB_USER}
-      POSTGRES_PASSWORD: ${DB_PASSWORD}
-      POSTGRES_DB: ${DB_NAME}
-    volumes:
-      - db:/var/lib/postgresql/data
+      db-postgres:
+        condition: service_healthy
 
 volumes:
   db:

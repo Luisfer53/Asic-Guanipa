@@ -139,6 +139,18 @@ describe('Get All Patients Endpoint', () => {
         expect(res.body.data[0].cedula).toBe('87654321');
     });
 
+    test('Should filter patients by full name with multiple tokens', async () => {
+        const res = await request(app)
+            .get('/api/pacientes/listado')
+            .set('Authorization', `Bearer ${medicoToken}`)
+            .query({ search: 'juan perez' });
+
+        expect(res.statusCode).toBe(200);
+        expect(res.body.data.length).toBe(1);
+        expect(res.body.data[0].persona.nombre1).toBe('Juan');
+        expect(res.body.data[0].persona.apellido1).toBe('Perez');
+    });
+
     test('Should paginate results', async () => {
         const res = await request(app)
             .get('/api/pacientes/listado')
