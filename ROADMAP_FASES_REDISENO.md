@@ -18,7 +18,7 @@ Este documento es la bitácora oficial del rediseño del sistema. Detalla el dia
 | **Fase 1** | **Landing Pública Limpia & Login Ágil Multimodal** | Backend & Frontend | ✅ Completado |
 | **Fase 2** | **Dashboard Despejado & Apertura de Guardia / Despliegue** | Frontend & Backend | ✅ Completado |
 | **Fase 3** | **Flujo de Inmunización Rápida & Modal Paciente al Vuelo** | Frontend & Backend | ✅ Completado |
-| **Fase 4** | **Registro Nominal (Data Grid), Carnet Digital, Constancia de Atención (QR) & Récipe Digital** | Frontend & Backend | ⏳ Pendiente |
+| **Fase 4** | **Registro Nominal (Data Grid), Carnet Digital, Constancia de Atención (QR) & Récipe Digital** | Frontend & Backend | ✅ Completado |
 | **Fase 5** | **Almacén Epidemiológico, Cadena de Frío & Entidades Distribuidoras** | Frontend & Backend | ⏳ Pendiente |
 | **Fase 6** | **Generador Dinámico de Reportes e Indicadores SISPAI / EPI** | Frontend & Backend | ⏳ Pendiente |
 
@@ -111,27 +111,20 @@ Este documento es la bitácora oficial del rediseño del sistema. Detalla el dia
     1. **Carnet de Inmunización Oficial:** Para control del esquema de vacunación del paciente.
     2. **Constancia de Atención Médica / Inmunización con QR:** Requerida por escuelas, maternales, empresas e instituciones públicas. Cualquier directivo o funcionario puede escanear el QR con su teléfono y validar en tiempo real que la atención fue legítima en el CDI.
     3. **Récipe Digital Oficial:** Para la prescripción clara de medicamentos, dosificación pediátrica/adulto e indicaciones, eliminando la letra ilegible y habilitando la verificación y dispensación segura en la farmacia del CDI.
-* **Acciones a realizar:**
-  - [ ] **Frontend:** Sustituir tarjetas por un **Data Grid compacto**:
-    * Columnas: Cédula/ID, Paciente, Edad, Sexo, Sector, Última Vacuna + Fecha, Estado Esquema (Completo, Incompleto, En esquema), Patologías, Acciones.
-    * Filtros avanzados multinivel y barra de búsqueda ágil.
-    * Exportación a Excel y PDF.
-  - [ ] **Frontend / Backend:** Vista unificada de historial del paciente con la matriz del Esquema Nacional de Inmunización.
-  - [ ] **Frontend / Backend:** Generador de **Carnet de Vacunación Oficial Imprimible** con formato del MPPS / ASIC Guanipa, formato CR-80 (tarjeta) y hoja completa, desglose de dosis aplicadas y código QR con verificación criptográfica.
-  - [ ] **Frontend / Backend:** Generador de **Constancia Oficial de Atención con QR Verificable**:
-    * Membrete oficial institucional: *República Bolivariana de Venezuela · MPPS · ASIC San José de Guanipa · CDI Dr. Pedro Urbina*.
-    * Datos filiatorios del paciente: Cédula o código dependiente (N1/N2), nombres completos, edad, sexo y sector/comunidad.
-    * Datos del acto médico/asistencial: Fecha y hora exacta, tipo de atención (Inmunización, Consulta Triaje, Control de Niño Sano), modalidad (Intramural CDI o Jornada Extramural), biológico o insumo administrado, lote y personal de salud responsable.
-    * **Código QR Dinámico de Validación Pública:** Enlace seguro al endpoint del servidor con hash de autenticidad (`/api/verificar/...`), permitiendo a escuelas o autoridades corroborar la vigencia del documento sin exponer el expediente clínico confidencial.
-    * Plantilla optimizada para impresión directa (`@media print` en tamaño carta o media carta) y descarga en PDF.
-  - [ ] **Frontend / Backend:** Módulo de **Récipe Digital Oficial (Prescripción Médica)**:
-    * Formato estandarizado según normativa nacional (MPPS / Ley del Ejercicio de la Medicina):
-      * **Encabezado institucional:** Datos del médico/enfermero tratante (Nombre, Cédula de Identidad, N° Registro MPPS, Colegio Médico).
-      * **Identificación del paciente:** Nombres, Cédula/ID, edad y peso (esencial para posología en niños).
-      * **Cuerpo de prescripción (Rp):** Principio activo / denominación genérica, concentración, forma farmacéutica, cantidad a dispensar y posología detallada (dosis, frecuencia y duración del tratamiento).
-      * **Indicaciones complementarias:** Cuidados generales, signos de alarma o fecha de próxima revisión.
-      * **Código QR de Trazabilidad:** Para validación en la farmacia interna del CDI o farmacias públicas comunitarias (SEFAR / Farmapatria).
-      * Sello y firma digitalizada del facultativo de guardia.
+* **Acciones realizadas:**
+  - [x] **Frontend:** Data Grid adaptativo y compacto:
+    * Modo Escritorio: tabla profesional de 6 columnas con identificador, paciente, sector, contacto, datos clínicos y acciones.
+    * Modo Móvil Android (<750px): tarjetas táctiles compactas con datos agrupados, avatares y botones adaptados al pulgar.
+    * Filtros avanzados multinivel (sector, edad, sexo) y búsqueda reactiva debounced.
+    * Exportación a CSV / Excel con codificación UTF-8 BOM.
+  - [x] **Frontend / Backend:** Vista unificada de historial del paciente (`PatientHistoryScreen`) con historial de dosis.
+  - [x] **Frontend / Backend:** Generador de **Carnet de Vacunación Oficial Imprimible** (`carnet_vacunacion_dialog.dart`) con formato del MPPS / ASIC Guanipa, formato CR-80 (tarjeta) y hoja completa, desglose de dosis y código QR.
+  - [x] **Frontend / Backend:** Generador de **Constancia Oficial de Atención con QR Verificable** (`constancia_atencion_dialog.dart`):
+    * Membrete institucional: *República Bolivariana de Venezuela · MPPS · ASIC San José de Guanipa · CDI Dr. Pedro Urbina*.
+    * Identificación del paciente, acto asistencial, observaciones clínicas, código de emisión y firma.
+    * Código QR dinámico para verificación pública de legitimidad.
+    * Impresión directa en formato Carta con estilos CSS de alta fidelidad.
+  - [x] **Frontend / Backend:** Módulo de **Récipe Digital Oficial** (`recipe_digital_dialog.dart`) con prescripción estructurada, posología y QR para dispensación en farmacia.
 
 ---
 
@@ -197,10 +190,15 @@ Este documento es la bitácora oficial del rediseño del sistema. Detalla el dia
 * `CreatePatientDialog` con soporte nativo para recién nacidos / pacientes sin cédula asociados a su representante legal.
 * Migración aditiva y modelo actualizados en BD (vía, sitio, temperatura, peso, talla, modalidad).
 
-### ⏳ Siguiente paso — Fase 4: Registro Nominal, Constancia con QR, Récipe Digital & Carnet Imprimible
-* **Data Grid compacto de pacientes** con búsqueda reactiva y filtros avanzados.
-* **Constancia Oficial de Atención con QR de Verificación Pública** (formato membretado MPPS/CDI para escuelas, trámites y público).
-* **Módulo de Récipe Digital Oficial** (prescripción médica estructurada, posología y QR para dispensación en farmacia).
-* **Carnet de Vacunación Oficial con QR Criptográfico** (formato CR-80 tarjeta y hoja imprimible).
-* **Arquitectura Offline-First:** Almacenamiento local SQLite/Hive en Flutter para atenciones en comunidades sin cobertura y sincronización en cola en segundo plano.
+### ✅ Fase 4 — Registro Nominal, Constancia con QR, Récipe Digital & Carnet Imprimible: COMPLETADA
+* **Data Grid adaptativo:** Tabla compacta de 6 columnas para escritorio y tarjetas táctiles para Android (<750px).
+* **Constancia Oficial de Atención con QR Verificable:** Diálogo institucional (`constancia_atencion_dialog.dart`) con membrete MPPS / CDI Pedro Urbina, datos de atención, código de verificación e impresión optimizada Carta / Media Carta.
+* **Módulo de Récipe Digital Oficial:** Prescripción médica estructurada con posología clara, QR de trazabilidad y sello digital.
+* **Carnet de Vacunación Oficial:** Formato credencial CR-80 y hoja completa con código QR de verificación de autenticidad.
+
+### ⏳ Siguiente paso — Fase 5: Almacén Epidemiológico, Cadena de Frío & Entidades Distribuidoras
+* Separación del inventario en 3 pestañas: Biológicos (Vacunas), Insumos/Consumibles y Activos Fijos (Termos/Data Loggers).
+* Control de Cadena de Frío (temperaturas de entrada, semáforos de stock/vencimiento).
+* Registro de Entidades Distribuidoras oficiales (MPPS, SEFAR, Almacén Regional Anzoátegui).
+
 

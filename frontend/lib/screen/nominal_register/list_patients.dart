@@ -10,6 +10,7 @@ import 'package:asis_guanipa_frontend/screen/nominal_register/create_patient_dia
 import 'package:asis_guanipa_frontend/screen/nominal_register/quick_patient_dialog.dart';
 import 'package:asis_guanipa_frontend/screen/nominal_register/carnet_vacunacion_dialog.dart';
 import 'package:asis_guanipa_frontend/screen/nominal_register/recipe_digital_dialog.dart';
+import 'package:asis_guanipa_frontend/screen/nominal_register/constancia_atencion_dialog.dart';
 import 'package:asis_guanipa_frontend/screen/nominal_register/patient_history_screen.dart';
 
 // ignore: avoid_web_libraries_in_flutter
@@ -803,7 +804,7 @@ class _ListPatientsState extends State<ListPatients> {
     );
   }
 
-  // ─── 4. Data Grid Central (Tabla Compacta) ─────────────────────────────────
+  // ─── 4. Data Grid Central (Tabla Compacta en Escritorio / Tarjetas en Móvil) ─
   Widget _buildDataGrid() {
     final inicio = (_paginaActual - 1) * _filasPorPagina;
     final fin = (inicio + _filasPorPagina) > _filteredPacientes.length
@@ -811,58 +812,73 @@ class _ListPatientsState extends State<ListPatients> {
         : (inicio + _filasPorPagina);
     final pacientesPagina = _filteredPacientes.sublist(inicio, fin);
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
-      child: Container(
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: const Color(0xFFCBD5E1)),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.03),
-              blurRadius: 6,
-              offset: const Offset(0, 2),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isMobile = constraints.maxWidth < 750;
+
+        if (isMobile) {
+          return SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            child: Column(
+              children: pacientesPagina.map((p) => _buildMobileCard(p)).toList(),
             ),
-          ],
-        ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(10),
-          child: Table(
-            columnWidths: const {
-              0: FlexColumnWidth(1.6), // Cédula / Código
-              1: FlexColumnWidth(2.6), // Paciente
-              2: FlexColumnWidth(2.2), // Sector / Habitación
-              3: FlexColumnWidth(2.0), // Contacto
-              4: FlexColumnWidth(1.6), // Datos Clínicos
-              5: FlexColumnWidth(2.0), // Acciones
-            },
-            children: [
-              // ─── Cabecera de la Tabla ─────────────────────────────────────
-              TableRow(
-                decoration: const BoxDecoration(
-                  color: Color(0xFF0F172A),
+          );
+        }
+
+        return SingleChildScrollView(
+          padding: const EdgeInsets.all(16),
+          child: Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: const Color(0xFFCBD5E1)),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.03),
+                  blurRadius: 6,
+                  offset: const Offset(0, 2),
                 ),
+              ],
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(10),
+              child: Table(
+                columnWidths: const {
+                  0: FlexColumnWidth(1.6), // Cédula / Código
+                  1: FlexColumnWidth(2.6), // Paciente
+                  2: FlexColumnWidth(2.2), // Sector / Habitación
+                  3: FlexColumnWidth(2.0), // Contacto
+                  4: FlexColumnWidth(1.6), // Datos Clínicos
+                  5: FlexColumnWidth(2.3), // Acciones (con Constancia)
+                },
                 children: [
-                  _headerCell('Identidad / CI', Icons.badge_outlined),
-                  _headerCell('Paciente', Icons.person_outline),
-                  _headerCell('Sector & Ubicación', Icons.location_on_outlined),
-                  _headerCell('Contacto', Icons.contact_phone_outlined),
-                  _headerCell('Clínica Básica', Icons.medical_information_outlined),
-                  _headerCell('Acciones Rápidas', Icons.settings_outlined, alignCenter: true),
+                  // ─── Cabecera de la Tabla ─────────────────────────────────────
+                  TableRow(
+                    decoration: const BoxDecoration(
+                      color: Color(0xFF0F172A),
+                    ),
+                    children: [
+                      _headerCell('Identidad / CI', Icons.badge_outlined),
+                      _headerCell('Paciente', Icons.person_outline),
+                      _headerCell('Sector & Ubicación', Icons.location_on_outlined),
+                      _headerCell('Contacto', Icons.contact_phone_outlined),
+                      _headerCell('Clínica Básica', Icons.medical_information_outlined),
+                      _headerCell('Acciones Rápidas', Icons.settings_outlined, alignCenter: true),
+                    ],
+                  ),
+                  // ─── Filas de Pacientes ───────────────────────────────────────
+                  ...pacientesPagina.asMap().entries.map((entry) {
+                    final idx = entry.key;
+                    final p = entry.value;
+                    final isEven = idx % 2 == 0;
+                    return _buildDataGridRow(p, isEven: isEven);
+                  }),
                 ],
               ),
-              // ─── Filas de Pacientes ───────────────────────────────────────
-              ...pacientesPagina.asMap().entries.map((entry) {
-                final idx = entry.key;
-                final p = entry.value;
-                final isEven = idx % 2 == 0;
-                return _buildDataGridRow(p, isEven: isEven);
-              }),
-            ],
+            ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 
@@ -1094,6 +1110,15 @@ class _ListPatientsState extends State<ListPatients> {
                   CarnetVacunacionDialog.show(context, paciente: p);
                 },
               ),
+              // Constancia Oficial de Atención con QR
+              IconButton(
+                icon: const Icon(Icons.verified_rounded, size: 18, color: Color(0xFF0284C7)),
+                tooltip: 'Constancia Oficial de Atención (QR)',
+                splashRadius: 18,
+                onPressed: () {
+                  ConstanciaAtencionDialog.show(context, paciente: p);
+                },
+              ),
               // Récipe Digital Oficial con QR
               IconButton(
                 icon: const Icon(Icons.receipt_long_rounded, size: 18, color: Color(0xFF1E3A8A)),
@@ -1125,6 +1150,205 @@ class _ListPatientsState extends State<ListPatients> {
           ),
         ),
       ],
+    );
+  }
+
+  // ─── Tarjeta Móvil Adaptativa para Android / Pantallas Pequeñas ───────────
+  Widget _buildMobileCard(Paciente p) {
+    final persona = p.persona;
+    final nombreCompleto = p.nombreCompleto.isNotEmpty ? p.nombreCompleto : '${p.nombre} ${p.apellido}';
+    final cedula = p.cedula.isNotEmpty ? p.cedula : 'Sin CI';
+    final esMenor = p.esMenor;
+    final edadStr = p.edadFormateada;
+    final sexo = p.sexoFormateado;
+    final telefono = p.telefono ?? persona?.telefono;
+    final direccion = p.direccionCompleta ?? 'San José de Guanipa';
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFCBD5E1)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Fila 1: Avatar + Nombre + Badges
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              CircleAvatar(
+                radius: 18,
+                backgroundColor: (sexo == 'Masculino' ? const Color(0xFF1565C0) : Colors.pink.shade400).withValues(alpha: 0.15),
+                child: Text(
+                  p.nombre.isNotEmpty ? p.nombre[0].toUpperCase() : 'P',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.bold,
+                    color: sexo == 'Masculino' ? const Color(0xFF1565C0) : Colors.pink.shade700,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      nombreCompleto,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w800,
+                        color: Color(0xFF0F172A),
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: esMenor ? const Color(0xFFFEF3C7) : const Color(0xFFEFF6FF),
+                            borderRadius: BorderRadius.circular(4),
+                            border: Border.all(
+                              color: esMenor ? const Color(0xFFF59E0B) : const Color(0xFF93C5FD),
+                            ),
+                          ),
+                          child: Text(
+                            cedula,
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                              color: esMenor ? const Color(0xFF92400E) : const Color(0xFF1E40AF),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          '$edadStr · $sexo',
+                          style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+
+          const Divider(height: 18, color: Color(0xFFF1F5F9)),
+
+          // Fila 2: Ubicación & Contacto
+          Row(
+            children: [
+              const Icon(Icons.location_on_outlined, size: 13, color: Color(0xFF64748B)),
+              const SizedBox(width: 4),
+              Expanded(
+                child: Text(
+                  direccion,
+                  style: const TextStyle(fontSize: 11, color: Color(0xFF334155)),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              if (telefono != null && telefono.isNotEmpty) ...[
+                const SizedBox(width: 8),
+                const Icon(Icons.phone_outlined, size: 13, color: Color(0xFF0D9488)),
+                const SizedBox(width: 3),
+                Text(
+                  telefono,
+                  style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF0D9488)),
+                ),
+              ],
+            ],
+          ),
+
+          const SizedBox(height: 12),
+
+          // Fila 3: Botones de Acción Táctiles adaptados a pulgar
+          Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            children: [
+              // Ficha
+              OutlinedButton.icon(
+                icon: const Icon(Icons.folder_shared_rounded, size: 14, color: Color(0xFF1565C0)),
+                label: const Text('Ficha', style: TextStyle(fontSize: 11, color: Color(0xFF1565C0))),
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  side: const BorderSide(color: Color(0xFF93C5FD)),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                ),
+                onPressed: () {
+                  final String identifier = p.cedula.isNotEmpty ? p.cedula : p.idPaciente.toString();
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => PatientHistoryScreen(
+                        pacienteId: identifier,
+                        nombrePaciente: nombreCompleto,
+                      ),
+                    ),
+                  );
+                },
+              ),
+              // Carnet QR
+              OutlinedButton.icon(
+                icon: const Icon(Icons.qr_code_2_rounded, size: 14, color: Color(0xFF0D9488)),
+                label: const Text('Carnet', style: TextStyle(fontSize: 11, color: Color(0xFF0D9488))),
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  side: const BorderSide(color: Color(0xFF99F6E4)),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                ),
+                onPressed: () => CarnetVacunacionDialog.show(context, paciente: p),
+              ),
+              // Constancia QR
+              OutlinedButton.icon(
+                icon: const Icon(Icons.verified_rounded, size: 14, color: Color(0xFF0284C7)),
+                label: const Text('Constancia', style: TextStyle(fontSize: 11, color: Color(0xFF0284C7))),
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  side: const BorderSide(color: Color(0xFFBAE6FD)),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                ),
+                onPressed: () => ConstanciaAtencionDialog.show(context, paciente: p),
+              ),
+              // Récipe QR
+              OutlinedButton.icon(
+                icon: const Icon(Icons.receipt_long_rounded, size: 14, color: Color(0xFF1E3A8A)),
+                label: const Text('Récipe', style: TextStyle(fontSize: 11, color: Color(0xFF1E3A8A))),
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  side: const BorderSide(color: Color(0xFFBFDBFE)),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                ),
+                onPressed: () => RecipeDigitalDialog.show(context, paciente: p),
+              ),
+              // Vacunar
+              ElevatedButton.icon(
+                icon: const Icon(Icons.vaccines_rounded, size: 14),
+                label: const Text('Vacunar', style: TextStyle(fontSize: 11)),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF15803D),
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  elevation: 0,
+                ),
+                onPressed: () => context.go('/jornada-diaria'),
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 
