@@ -1,4 +1,4 @@
-﻿import 'dart:convert';
+import 'dart:convert';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -7,8 +7,7 @@ import 'package:asis_guanipa_frontend/models/paciente.dart';
 import 'package:asis_guanipa_frontend/services/api_service.dart';
 import 'package:asis_guanipa_frontend/providers/auth_providers.dart';
 
-// ignore: avoid_web_libraries_in_flutter
-import 'dart:html' as html;
+import 'package:asis_guanipa_frontend/utils/web_helper.dart' as webHelper;
 
 /// ─────────────────────────────────────────────────────────────────────────────
 /// CARNET DIGITAL DE VACUNACIÓN OFICIAL (MPPS / ASIC GUANIPA / CDI PEDRO URBINA)
@@ -261,6 +260,12 @@ class _CarnetVacunacionDialogState extends State<CarnetVacunacionDialog> {
       return;
     }
 
+    // 1. Abrir ventana en blanco síncronamente al clic para evitar bloqueo de pop-up
+    dynamic ventanaPrevia;
+    try {
+      ventanaPrevia = webHelper.openBlankWindow();
+    } catch (_) {}
+
     final persona = widget.paciente.persona;
     final nombreCompleto = widget.paciente.nombreCompleto;
     final cedula = widget.paciente.cedula;
@@ -305,64 +310,23 @@ class _CarnetVacunacionDialogState extends State<CarnetVacunacionDialog> {
     );
 
     try {
-      final blob = html.Blob([htmlContent], 'text/html;charset=utf-8');
-      final blobUrl = html.Url.createObjectUrlFromBlob(blob);
-
-      // Abrir en nueva pestaña (sin auto-print)
-      final ventana = html.window.open(blobUrl, '_blank');
-
-      if (ventana == null) {
-        // Popups bloqueados → notificar al usuario con instrucciones
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: const Row(children: [
-                Icon(Icons.warning_amber_rounded, color: Colors.white),
-                SizedBox(width: 10),
-                Expanded(child: Text(
-                  'El navegador bloqueó la ventana emergente.\nPermite popups para este sitio y vuelve a intentarlo.',
-                  style: TextStyle(fontSize: 12),
-                )),
-              ]),
-              backgroundColor: const Color(0xFFB45309),
-              duration: const Duration(seconds: 6),
-              behavior: SnackBarBehavior.floating,
-              action: SnackBarAction(
-                label: 'DESCARGAR',
-                textColor: Colors.white,
-                onPressed: () {
-                  // Fallback: descargar como archivo HTML
-                  final anchor = html.AnchorElement(href: blobUrl)
-                    ..setAttribute('download', 'carnet_vacunacion_${cedula.replaceAll(RegExp(r"[^a-zA-Z0-9]"), "_")}.html')
-                    ..click();
-                  html.Url.revokeObjectUrl(blobUrl);
-                },
-              ),
-            ),
-          );
-        }
-      } else {
-        if (!abrirEnNuevaPestana) {
-          // Si el usuario quiso imprimir directamente, la página HTML ya tiene
-          // un script que dispara window.print() automáticamente al cargar
-        }
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Row(children: [
-                Icon(Icons.check_circle_rounded, color: Colors.white),
-                SizedBox(width: 8),
-                Expanded(child: Text(
-                  'Carnet abierto en nueva pestaña. Usa Ctrl+P para imprimir o Guardar como PDF.',
-                  style: TextStyle(fontSize: 12),
-                )),
-              ]),
-              duration: Duration(seconds: 4),
-              backgroundColor: Color(0xFF16A34A),
-              behavior: SnackBarBehavior.floating,
-            ),
-          );
-        }
+      await webHelper.openHtmlPrint(htmlContent, ventanaPrevia);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Row(children: [
+              Icon(Icons.check_circle_rounded, color: Colors.white),
+              SizedBox(width: 8),
+              Expanded(child: Text(
+                'Carnet abierto en nueva pestaña. Usa Ctrl+P para imprimir o Guardar como PDF.',
+                style: TextStyle(fontSize: 12),
+              )),
+            ]),
+            duration: Duration(seconds: 4),
+            backgroundColor: Color(0xFF16A34A),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
       }
     } catch (e) {
       debugPrint('Error al imprimir carnet: $e');
@@ -1364,7 +1328,7 @@ class _CarnetVacunacionDialogState extends State<CarnetVacunacionDialog> {
         child: GestureDetector(
           onTap: () {
             if (kIsWeb) {
-              html.window.open(urlQR, '_blank');
+              webHelper.openInNewTab(urlQR);
             }
           },
           child: Container(

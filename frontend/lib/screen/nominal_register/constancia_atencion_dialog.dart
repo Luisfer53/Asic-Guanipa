@@ -8,8 +8,7 @@ import 'package:asis_guanipa_frontend/models/paciente.dart';
 import 'package:asis_guanipa_frontend/services/api_service.dart';
 import 'package:asis_guanipa_frontend/providers/auth_providers.dart';
 
-// ignore: avoid_web_libraries_in_flutter
-import 'dart:html' as html;
+import 'package:asis_guanipa_frontend/utils/web_helper.dart' as webHelper;
 
 /// ─────────────────────────────────────────────────────────────────────────────
 /// CONSTANCIA OFICIAL DE ATENCIÓN CON QR VERIFICABLE (FASE 4)
@@ -22,18 +21,20 @@ class ConstanciaAtencionDialog extends StatefulWidget {
   final String? profesionalNombre;
   final String? motivoAtencion;
 
-  const ConstanciaAtencionDialog({
+  ConstanciaAtencionDialog({
     super.key,
     required this.paciente,
-    this.atencionReciente,
+    Map<String, dynamic>? atencionReciente,
+    Map<String, dynamic>? atencion,
     this.profesionalNombre,
     this.motivoAtencion,
-  });
+  }) : atencionReciente = atencionReciente ?? atencion;
 
   static Future<void> show(
     BuildContext context, {
     required Paciente paciente,
     Map<String, dynamic>? atencionReciente,
+    Map<String, dynamic>? atencion,
     String? profesionalNombre,
     String? motivoAtencion,
   }) {
@@ -42,7 +43,7 @@ class ConstanciaAtencionDialog extends StatefulWidget {
       barrierDismissible: true,
       builder: (_) => ConstanciaAtencionDialog(
         paciente: paciente,
-        atencionReciente: atencionReciente,
+        atencionReciente: atencionReciente ?? atencion,
         profesionalNombre: profesionalNombre,
         motivoAtencion: motivoAtencion,
       ),
@@ -143,7 +144,7 @@ class _ConstanciaAtencionDialogState extends State<ConstanciaAtencionDialog> {
   }
 
   String _generarUrlVerificacion(String codigo) {
-    final baseUri = kIsWeb ? html.window.location.origin : 'https://asicguanipa.gob.ve';
+    final baseUri = kIsWeb ? webHelper.getOrigin() : 'https://asicguanipa.gob.ve';
     final ced = widget.paciente.cedula.isNotEmpty ? widget.paciente.cedula : 'S-CI';
     return '$baseUri/verificar-constancia?codigo=$codigo&ci=$ced';
   }
@@ -181,6 +182,12 @@ class _ConstanciaAtencionDialogState extends State<ConstanciaAtencionDialog> {
         ),
       );
       return;
+    }
+
+    // 1. Abrir la ventana en blanco inmediatamente durante el clic para evitar bloqueo de pop-up
+    dynamic ventana;
+    if (kIsWeb) {
+      ventana = webHelper.openBlankWindow();
     }
 
     final p = widget.paciente;
@@ -506,9 +513,11 @@ class _ConstanciaAtencionDialogState extends State<ConstanciaAtencionDialog> {
 </html>
 ''';
 
-    final blob = html.Blob([htmlContent], 'text/html;charset=utf-8');
-    final url = html.Url.createObjectUrlFromBlob(blob);
-    html.window.open(url, '_blank');
+    await webHelper.openHtmlPrint(htmlContent, ventana);
+  }
+
+  Future<void> _lanzarImpresionWeb(String htmlContent, [dynamic ventanaPrevia]) async {
+    await webHelper.openHtmlPrint(htmlContent, ventanaPrevia);
   }
 
   @override
@@ -834,36 +843,57 @@ class _ConstanciaAtencionDialogState extends State<ConstanciaAtencionDialog> {
                   bottomRight: Radius.circular(16),
                 ),
               ),
-              child: Row(
-                children: [
-                  TextButton.icon(
-                    onPressed: () => Navigator.of(context).pop(),
-                    icon: const Icon(Icons.arrow_back_rounded, size: 16),
-                    label: const Text('Cerrar'),
-                    style: TextButton.styleFrom(
-                      foregroundColor: const Color(0xFF64748B),
+              child: isMobile
+                  ? Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        ElevatedButton.icon(
+                          onPressed: _imprimirConstancia,
+                          icon: const Icon(Icons.print_rounded, size: 18),
+                          label: const Text('Imprimir Constancia Oficial'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF005691),
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                            elevation: 1,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        TextButton(
+                          onPressed: () => Navigator.of(context).pop(),
+                          child: const Text('Cerrar', style: TextStyle(color: Color(0xFF64748B), fontSize: 12)),
+                        ),
+                      ],
+                    )
+                  : Row(
+                      children: [
+                        TextButton.icon(
+                          onPressed: () => Navigator.of(context).pop(),
+                          icon: const Icon(Icons.arrow_back_rounded, size: 16),
+                          label: const Text('Cerrar'),
+                          style: TextButton.styleFrom(
+                            foregroundColor: const Color(0xFF64748B),
+                          ),
+                        ),
+                        const Spacer(),
+                        ElevatedButton.icon(
+                          onPressed: _imprimirConstancia,
+                          icon: const Icon(Icons.print_rounded, size: 18),
+                          label: const Text('Imprimir Constancia Oficial'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF005691),
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            elevation: 1,
+                          ),
+                        ),
+                      ],
                     ),
-                  ),
-                  const Spacer(),
-                  ElevatedButton.icon(
-                    onPressed: _imprimirConstancia,
-                    icon: const Icon(Icons.print_rounded, size: 18),
-                    label: const Text('Imprimir Constancia Oficial'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF005691),
-                      foregroundColor: Colors.white,
-                      padding: EdgeInsets.symmetric(
-                        horizontal: isMobile ? 14 : 20,
-                        vertical: 12,
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      elevation: 1,
-                    ),
-                  ),
-                ],
-              ),
             ),
           ],
         ),

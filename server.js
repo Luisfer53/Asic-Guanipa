@@ -1,4 +1,4 @@
-const express = require('express');
+﻿const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
@@ -31,13 +31,21 @@ app.set('trust proxy', 1);
 app.use(helmet({ contentSecurityPolicy: false }));
 
 // ─── 🛡️ SEGURIDAD: Configuración de CORS ────────────────────────────────
-const allowedOrigins = process.env.ALLOWED_ORIGINS
+const allowedOrigins = (process.env.ALLOWED_ORIGINS
     ? process.env.ALLOWED_ORIGINS.split(',')
-    : ['http://localhost:3000', 'http://localhost:8080', 'https://api.asic-guanipa.online'];
+    : ['http://localhost:3000', 'http://localhost:8080', 'https://api.asic-guanipa.online']
+).map(o => o.trim());
+
+if (process.env.RENDER_EXTERNAL_URL) {
+    allowedOrigins.push(process.env.RENDER_EXTERNAL_URL.trim());
+}
+if (process.env.FRONTEND_URL) {
+    allowedOrigins.push(process.env.FRONTEND_URL.trim());
+}
 
 app.use(cors({
     origin: (origin, callback) => {
-        if (!origin || process.env.NODE_ENV !== 'production' || allowedOrigins.includes(origin)) {
+        if (!origin || process.env.NODE_ENV !== 'production' || allowedOrigins.includes(origin) || allowedOrigins.some(o => origin.startsWith(o))) {
             callback(null, true);
         } else {
             callback(new Error('Acceso no permitido por la directiva CORS'));
@@ -79,14 +87,41 @@ app.use('/downloads', express.static(path.join(__dirname, 'downloads')));
 app.use(express.static(path.join(__dirname, 'public')));
 
 // ─── 🌐 FRONTEND WEB (Flutter Web Build) ─────────────────────────────────────
-const flutterWebPath = path.join(__dirname, 'frontend', 'build', 'web');
+const defaultBuildPath = path.join(__dirname, 'frontend', 'build', 'web');
+const fallbackPublicPath = path.join(__dirname, 'public');
+const flutterWebPath = fs.existsSync(path.join(defaultBuildPath, 'index.html'))
+    ? defaultBuildPath
+    : fallbackPublicPath;
+
+const staticOptions = {
+    etag: false,
+    maxAge: 0,
+    setHeaders: (res, filePath) => {
+        res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+        res.setHeader('Pragma', 'no-cache');
+        res.setHeader('Expires', '0');
+    }
+};
 
 // Servir archivos estáticos del build de Flutter (JS, WASM, assets, etc.)
-app.use(express.static(flutterWebPath));
-app.use('/app', express.static(flutterWebPath));
+// Asegurar que la carpeta downloads exista
+const downloadsPath = path.join(__dirname, 'downloads');
+if (!fs.existsSync(downloadsPath)) {
+    try { fs.mkdirSync(downloadsPath, { recursive: true }); } catch (_) {}
+}
+
+// Servir archivos estáticos del build de Flutter (JS, WASM, assets, etc.)
+app.use(express.static(flutterWebPath, staticOptions));
+app.use('/app', express.static(flutterWebPath, staticOptions));
 
 app.get(['/', '/app', '/app/*'], (req, res) => {
-    res.sendFile(path.join(flutterWebPath, 'index.html'));
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    const targetFile = path.join(flutterWebPath, 'index.html');
+    if (fs.existsSync(targetFile)) {
+        res.sendFile(targetFile);
+    } else {
+        res.status(404).send('Aplicación web no disponible temporalmente.');
+    }
 });
 
 app.use('/api/auth', authRoutes);
@@ -1222,6 +1257,490 @@ app.get('/recipe/verificar', async (req, res) => {
         `);
     } catch (e) {
         console.error('Error al verificar récipe:', e);
+        res.status(500).send('Error interno en el servidor de verificación');
+    }
+});
+
+// ─── 🏥 VERIFICACIÓN PÚBLICA DE CONSTANCIA MÉDICA DE ATENCIÓN (sin JWT) ─────────
+// Endpoint escaneado por el QR de la constancia: /verificar-constancia?codigo=CODIGO&ci=CEDULA
+app.get(['/verificar-constancia', '/constancia/verificar'], async (req, res) => {
+    const rawId = (req.query.ci || req.query.id || req.query.cedula || '').trim();
+    const queryCodigo = (req.query.codigo || req.query.cod || '').trim();
+
+    const SVG = {
+        shieldCheck: `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#16A34A" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg>`,
+        shieldAlert: `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#DC2626" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>`,
+        shieldWarning: `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#D97706" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>`,
+        check: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`,
+        printer: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>`,
+        hospital: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18"/><path d="M5 21V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16"/><path d="M10 9h4"/><path d="M12 7v4"/></svg>`,
+        calendar: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>`,
+        userCheck: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><polyline points="17 11 19 13 23 9"/></svg>`
+    };
+
+    if (!rawId && !queryCodigo) {
+        return res.status(400).send(`
+            <!DOCTYPE html><html lang="es"><head><meta charset="UTF-8">
+            <title>Parámetros Inválidos — CDI Dr. Pedro Urbina</title>
+            <meta name="viewport" content="width=device-width, initial-scale=1">
+            <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+            <style>
+                body { font-family: 'Inter', sans-serif; background: #F8FAFC; color: #0F172A; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; padding: 1.5rem; }
+                .card { background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 12px; padding: 2.5rem 2rem; max-width: 460px; text-align: center; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.06); }
+                .icon-circle { width: 56px; height: 56px; border-radius: 50%; background: #FEF3C7; border: 1px solid #FDE68A; display: flex; align-items: center; justify-content: center; margin: 0 auto 1.25rem; }
+                .title { color: #92400E; font-size: 1.25rem; font-weight: 800; margin-bottom: 0.5rem; }
+                .msg { color: #475569; font-size: 0.9rem; line-height: 1.55; }
+                .badge { display: inline-block; background: #F1F5F9; color: #475569; font-size: 0.75rem; font-weight: 700; padding: 0.35rem 0.75rem; border-radius: 6px; margin-top: 1.5rem; }
+            </style></head><body><div class="card">
+                <div class="icon-circle">${SVG.shieldWarning}</div>
+                <div class="title">Código de Verificación Incompleto</div>
+                <div class="msg">El enlace escaneado no contiene los parámetros de búsqueda oficial. Asegúrese de escanear el código QR impreso en una constancia médica oficial del CDI Dr. Pedro Urbina.</div>
+                <div class="badge">ASIC SAN JOSÉ DE GUANIPA · CONTROL EPIDEMIOLÓGICO</div>
+            </div></body></html>`);
+    }
+
+    try {
+        const cleanId = rawId ? rawId.replace(/[^0-9a-zA-Z]/g, '').replace(/^[vVeEpPjJ]/, '') : '';
+
+        let persona = null;
+        if (cleanId) {
+            persona = await db.Persona.findOne({
+                where: {
+                    cedula_identidad: { [db.Sequelize.Op.iLike]: `%${cleanId}%` }
+                }
+            });
+            if (!persona && rawId) {
+                persona = await db.Persona.findOne({
+                    where: {
+                        cedula_identidad: { [db.Sequelize.Op.iLike]: `%${rawId}%` }
+                    }
+                });
+            }
+        }
+
+        if (!persona) {
+            return res.status(404).send(`
+                <!DOCTYPE html><html lang="es"><head><meta charset="UTF-8">
+                <title>Constancia No Encontrada — CDI Dr. Pedro Urbina</title>
+                <meta name="viewport" content="width=device-width, initial-scale=1">
+                <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+                <style>
+                    body { font-family: 'Inter', sans-serif; background: #F8FAFC; color: #0F172A; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; padding: 1.5rem; }
+                    .card { background: #FFFFFF; border: 1px solid #FECACA; border-radius: 12px; padding: 2.5rem 2rem; max-width: 480px; text-align: center; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.06); }
+                    .icon-circle { width: 56px; height: 56px; border-radius: 50%; background: #FEE2E2; border: 1px solid #FECACA; display: flex; align-items: center; justify-content: center; margin: 0 auto 1.25rem; }
+                    .title { color: #991B1B; font-size: 1.25rem; font-weight: 800; margin-bottom: 0.5rem; }
+                    .folio { background: #EFF6FF; color: #1E3A8A; border: 1px solid #BFDBFE; font-size: 0.85rem; font-weight: 700; font-family: monospace; padding: 0.3rem 0.75rem; border-radius: 6px; display: inline-block; margin-bottom: 1rem; }
+                    .msg { color: #475569; font-size: 0.9rem; line-height: 1.55; }
+                    .footer-txt { margin-top: 1.75rem; font-size: 0.75rem; color: #64748B; border-top: 1px solid #F1F5F9; padding-top: 1rem; font-weight: 600; }
+                </style></head><body><div class="card">
+                    <div class="icon-circle">${SVG.shieldAlert}</div>
+                    <div class="title">Constancia No Encontrada</div>
+                    <div class="folio">CÓDIGO: ${queryCodigo || 'S/C'} · C.I: ${rawId || 'S/CI'}</div>
+                    <div class="msg">No se localizó un registro clínico asociado a este código o documento de identidad en la base de datos nominal del Centro de Diagnóstico Integral Dr. Pedro Urbina. Verifique el documento o acuda al centro emisor.</div>
+                    <div class="footer-txt">REPÚBLICA BOLIVARIANA DE VENEZUELA · MPPS · ASIC GUANIPA</div>
+                </div></body></html>`);
+        }
+
+        const nombreCompleto = `${persona.nombre1 || ''} ${persona.nombre2 || ''} ${persona.apellido1 || ''} ${persona.apellido2 || ''}`.replace(/\s+/g, ' ').trim() || 'Paciente Registrado';
+        const cedulaFormateada = persona.cedula_identidad || rawId || 'Menor sin cédula';
+        const sexoFormateado = persona.sexo === 'M' ? 'Masculino' : (persona.sexo === 'F' ? 'Femenino' : 'No especificado');
+
+        let edadCalculada = 'No registrada';
+        if (persona.fecha_nacimiento) {
+            const nac = new Date(persona.fecha_nacimiento);
+            const hoy = new Date();
+            let edad = hoy.getFullYear() - nac.getFullYear();
+            const m = hoy.getMonth() - nac.getMonth();
+            if (m < 0 || (m === 0 && hoy.getDate() < nac.getDate())) edad--;
+            edadCalculada = `${edad} años`;
+        }
+
+        // Buscar dirección
+        let direccionTexto = 'Municipio San José de Guanipa, Anzoátegui';
+        try {
+            const dir = await db.Direccion.findOne({ where: { id_persona: persona.id_persona } });
+            if (dir) {
+                const partes = [dir.calle, dir.numero_casa, dir.parroquia].filter(Boolean);
+                if (partes.length > 0) direccionTexto = partes.join(', ');
+            }
+        } catch (_) {}
+
+        // Buscar paciente y última atención de forma directa y segura
+        let paciente = null;
+        try {
+            paciente = await db.Paciente.findOne({ where: { id_persona: persona.id_persona } });
+        } catch (_) {}
+
+        let ultimaAtencion = null;
+        let profesional = 'Lcdo(a). Personal Médico de Guardia';
+        let centroNombre = 'CDI Dr. Pedro Urbina · ASIC Guanipa';
+
+        if (paciente) {
+            try {
+                ultimaAtencion = await db.AtencionDiaria.findOne({
+                    where: { id_paciente: paciente.id_paciente },
+                    order: [['fecha_visita', 'DESC'], ['id_atencion', 'DESC']]
+                });
+
+                if (ultimaAtencion) {
+                    if (ultimaAtencion.id_centro) {
+                        try {
+                            const c = await db.CentroSalud.findByPk(ultimaAtencion.id_centro);
+                            if (c?.nombre_centro) centroNombre = c.nombre_centro;
+                        } catch (_) {}
+                    }
+                    if (ultimaAtencion.id_usuario_registra) {
+                        try {
+                            const u = await db.Usuario.findByPk(ultimaAtencion.id_usuario_registra, {
+                                include: [{ model: db.Persona, as: 'persona', attributes: ['nombre1', 'apellido1'] }]
+                            });
+                            if (u) {
+                                const pMed = u.persona ? `${u.persona.nombre1 || ''} ${u.persona.apellido1 || ''}`.trim() : '';
+                                profesional = pMed ? `Dr(a). ${pMed}` : (u.nombre_usuario ? `Dr(a). ${u.nombre_usuario}` : profesional);
+                            }
+                        } catch (_) {}
+                    }
+                }
+            } catch (errAt) {
+                console.warn('Nota: atencion consultada sin detalles extra:', errAt.message);
+            }
+        }
+
+        const fechaHoy = new Date().toLocaleDateString('es-VE', {
+            year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit'
+        });
+
+        const fechaAsistencia = ultimaAtencion?.fecha_visita 
+            ? new Date(ultimaAtencion.fecha_visita + 'T12:00:00').toLocaleDateString('es-VE', { year: 'numeric', month: 'long', day: 'numeric' })
+            : new Date().toLocaleDateString('es-VE', { year: 'numeric', month: 'long', day: 'numeric' });
+
+        const tipoAtencion = ultimaAtencion?.tipo_atencion === 'consulta_medica'
+            ? 'Consulta Médica General & Triaje'
+            : (ultimaAtencion?.tipo_atencion === 'inmunizacion' ? 'Inmunización / Control Preventivo' : 'Atención Médica Ambulatoria');
+
+        const diagnostico = ultimaAtencion?.diagnostico_general || ultimaAtencion?.motivo_consulta || 'Evaluación Médica y Atención Sanitaria Preventiva';
+        const observaciones = ultimaAtencion?.observaciones || 'Se emite la presente constancia para los fines legales, escolares o laborales pertinentes.';
+        
+// Profesional y centro definidos arriba
+
+        // Signos vitales si existen
+        const signosList = [];
+        if (ultimaAtencion?.presion_arterial && ultimaAtencion.presion_arterial.trim()) signosList.push({ label: 'Presión Arterial', value: ultimaAtencion.presion_arterial + ' mmHg' });
+        if (ultimaAtencion?.temperatura && !isNaN(parseFloat(ultimaAtencion.temperatura)) && parseFloat(ultimaAtencion.temperatura) > 0) signosList.push({ label: 'Temperatura', value: ultimaAtencion.temperatura + ' °C' });
+        if (ultimaAtencion?.frecuencia_cardiaca && !isNaN(parseInt(ultimaAtencion.frecuencia_cardiaca)) && parseInt(ultimaAtencion.frecuencia_cardiaca) > 0) signosList.push({ label: 'Frecuencia Cardíaca', value: ultimaAtencion.frecuencia_cardiaca + ' lpm' });
+        if (ultimaAtencion?.saturacion_oxigeno && !isNaN(parseInt(ultimaAtencion.saturacion_oxigeno)) && parseInt(ultimaAtencion.saturacion_oxigeno) > 0) signosList.push({ label: 'Sat. Oxígeno (SpO2)', value: ultimaAtencion.saturacion_oxigeno + ' %' });
+        if (ultimaAtencion?.peso && !isNaN(parseFloat(ultimaAtencion.peso)) && parseFloat(ultimaAtencion.peso) > 0) signosList.push({ label: 'Peso Corporal', value: ultimaAtencion.peso + ' kg' });
+
+        res.send(`
+            <!DOCTYPE html>
+            <html lang="es">
+            <head>
+                <meta charset="UTF-8">
+                <title>Verificación Oficial de Constancia Médica — CDI Dr. Pedro Urbina</title>
+                <meta name="viewport" content="width=device-width, initial-scale=1">
+                <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+                <style>
+                    :root {
+                        --blue-900: #0F2D59;
+                        --blue-800: #1E3A8A;
+                        --blue-600: #0284C7;
+                        --slate-900: #0F172A;
+                        --slate-800: #1E293B;
+                        --slate-700: #334155;
+                        --slate-600: #475569;
+                        --slate-100: #F1F5F9;
+                        --green-600: #16A34A;
+                        --green-50: #F0FDF4;
+                        --green-100: #DCFCE7;
+                    }
+                    * { box-sizing: border-box; margin: 0; padding: 0; }
+                    body {
+                        font-family: 'Inter', -apple-system, sans-serif;
+                        background: #F8FAFC;
+                        color: var(--slate-900);
+                        line-height: 1.5;
+                        padding-bottom: 3rem;
+                    }
+                    .top-navbar {
+                        background: var(--blue-900);
+                        color: white;
+                        padding: 0.85rem 1.25rem;
+                        border-bottom: 3px solid #38BDF8;
+                        text-align: center;
+                    }
+                    .brand-title { font-size: 0.85rem; font-weight: 800; letter-spacing: 0.5px; }
+                    .brand-subtitle { font-size: 0.72rem; color: #BAE6FD; font-weight: 600; margin-top: 2px; }
+                    .page-container {
+                        max-width: 720px;
+                        margin: 1.5rem auto 0;
+                        padding: 0 1rem;
+                    }
+                    .verification-banner {
+                        background: var(--green-50);
+                        border: 1px solid #BBF7D0;
+                        border-left: 5px solid var(--green-600);
+                        border-radius: 12px;
+                        padding: 1.25rem 1.5rem;
+                        margin-bottom: 1.5rem;
+                        display: flex;
+                        gap: 1rem;
+                        align-items: center;
+                        box-shadow: 0 2px 8px rgba(22, 163, 74, 0.08);
+                    }
+                    .banner-icon {
+                        background: #DCFCE7;
+                        border: 1px solid #86EFAC;
+                        width: 48px;
+                        height: 48px;
+                        border-radius: 50%;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        flex-shrink: 0;
+                    }
+                    .banner-content h1 {
+                        font-size: 1.05rem;
+                        font-weight: 800;
+                        color: #166534;
+                        margin-bottom: 0.2rem;
+                    }
+                    .banner-content p {
+                        font-size: 0.85rem;
+                        color: #15803D;
+                        line-height: 1.4;
+                    }
+                    .card {
+                        background: #FFFFFF;
+                        border: 1px solid #E2E8F0;
+                        border-radius: 12px;
+                        padding: 1.5rem;
+                        box-shadow: 0 4px 14px rgba(0,0,0,0.04);
+                        margin-bottom: 1.25rem;
+                    }
+                    .card-header {
+                        font-size: 0.95rem;
+                        font-weight: 800;
+                        color: var(--blue-900);
+                        border-bottom: 2px solid #F1F5F9;
+                        padding-bottom: 0.75rem;
+                        margin-bottom: 1rem;
+                        display: flex;
+                        justify-content: space-between;
+                        align-items: center;
+                    }
+                    .item-row {
+                        display: flex;
+                        justify-content: space-between;
+                        padding: 0.6rem 0;
+                        border-bottom: 1px dashed #F1F5F9;
+                        font-size: 0.88rem;
+                    }
+                    .item-row:last-child { border-bottom: none; }
+                    .item-label { color: var(--slate-600); font-weight: 500; }
+                    .item-value { font-weight: 700; color: var(--slate-900); text-align: right; }
+                    .badge-active {
+                        background: #DCFCE7;
+                        color: #15803D;
+                        padding: 4px 10px;
+                        border-radius: 6px;
+                        font-size: 0.75rem;
+                        font-weight: 800;
+                        letter-spacing: 0.3px;
+                    }
+                    .signos-grid {
+                        display: grid;
+                        grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+                        gap: 8px;
+                        margin-top: 10px;
+                    }
+                    .signo-pill {
+                        background: #F8FAFC;
+                        border: 1px solid #E2E8F0;
+                        border-radius: 8px;
+                        padding: 8px 10px;
+                        text-align: center;
+                    }
+                    .signo-pill span { display: block; font-size: 0.7rem; color: #64748B; font-weight: 600; text-transform: uppercase; }
+                    .signo-pill strong { font-size: 0.88rem; color: #0F172A; font-weight: 800; }
+                    .btn-group {
+                        display: flex;
+                        gap: 10px;
+                        margin-top: 1.5rem;
+                    }
+                    .btn-primary {
+                        flex: 1;
+                        background: var(--blue-800);
+                        color: white;
+                        border: none;
+                        padding: 0.85rem 1rem;
+                        border-radius: 8px;
+                        font-size: 0.92rem;
+                        font-weight: 700;
+                        cursor: pointer;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        gap: 0.5rem;
+                        transition: background 0.15s;
+                        text-decoration: none;
+                    }
+                    .btn-primary:hover { background: #172554; }
+                    .btn-secondary {
+                        background: #FFFFFF;
+                        color: #475569;
+                        border: 1px solid #CBD5E1;
+                        padding: 0.85rem 1.25rem;
+                        border-radius: 8px;
+                        font-size: 0.92rem;
+                        font-weight: 600;
+                        cursor: pointer;
+                        text-decoration: none;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                    }
+                    .disclaimer {
+                        font-size: 0.75rem;
+                        color: var(--slate-600);
+                        text-align: center;
+                        margin-top: 1.5rem;
+                        line-height: 1.5;
+                        padding: 0 1rem;
+                    }
+                    .stamp-box {
+                        margin-top: 1.25rem;
+                        padding: 1rem;
+                        border: 1px dashed #CBD5E1;
+                        border-radius: 8px;
+                        background: #F8FAFC;
+                        display: flex;
+                        align-items: center;
+                        justify-content: space-between;
+                        gap: 1rem;
+                    }
+                    .stamp-info { font-size: 0.75rem; color: #475569; line-height: 1.4; }
+                    .stamp-info strong { color: #0F172A; font-size: 0.8rem; display: block; margin-bottom: 2px; }
+                    .stamp-badge {
+                        background: #EFF6FF;
+                        border: 1px solid #BFDBFE;
+                        color: #1E40AF;
+                        font-size: 0.72rem;
+                        font-weight: 800;
+                        padding: 4px 8px;
+                        border-radius: 4px;
+                        white-space: nowrap;
+                    }
+                    @media print {
+                        .top-navbar, .btn-group, .disclaimer { display: none !important; }
+                        body { background: white; padding: 0; }
+                        .card { box-shadow: none !important; border: 1px solid #CBD5E1; }
+                    }
+                </style>
+            </head>
+            <body>
+                <nav class="top-navbar">
+                    <div class="brand-title">REPÚBLICA BOLIVARIANA DE VENEZUELA · MPPS</div>
+                    <div class="brand-subtitle">ASIC SAN JOSÉ DE GUANIPA · CENTRO DE DIAGNÓSTICO INTEGRAL DR. PEDRO URBINA</div>
+                </nav>
+
+                <div class="page-container">
+                    <div class="verification-banner">
+                        <div class="banner-icon">${SVG.shieldCheck}</div>
+                        <div class="banner-content">
+                            <h1>CONSTANCIA MÉDICA AUTÉNTICA Y CERTIFICADA</h1>
+                            <p>El presente documento certifica de manera oficial la asistencia médica presencial del paciente en el CDI Dr. Pedro Urbina, con respaldo en el Sistema de Gestión Nominal y Epidemiológico.</p>
+                        </div>
+                    </div>
+
+                    <!-- Datos del Paciente -->
+                    <div class="card">
+                        <div class="card-header">
+                            <span>1. Datos del Paciente</span>
+                            <span class="badge-active">REGISTRO ACTIVO</span>
+                        </div>
+                        <div class="item-row">
+                            <span class="item-label">Nombres y Apellidos:</span>
+                            <span class="item-value">${nombreCompleto}</span>
+                        </div>
+                        <div class="item-row">
+                            <span class="item-label">Cédula de Identidad / Doc:</span>
+                            <span class="item-value">${cedulaFormateada}</span>
+                        </div>
+                        <div class="item-row">
+                            <span class="item-label">Edad y Sexo:</span>
+                            <span class="item-value">${edadCalculada} · ${sexoFormateado}</span>
+                        </div>
+                        <div class="item-row">
+                            <span class="item-label">Comunidad / Residencia:</span>
+                            <span class="item-value">${direccionTexto}</span>
+                        </div>
+                    </div>
+
+                    <!-- Registro de la Asistencia Médica -->
+                    <div class="card">
+                        <div class="card-header">
+                            <span>2. Certificación de Asistencia Médica</span>
+                            <span style="font-family: monospace; font-size: 0.8rem; font-weight: 800; color: #0284C7;">${queryCodigo || 'CDIPU-VERIFICADO'}</span>
+                        </div>
+                        <div class="item-row">
+                            <span class="item-label">Fecha de Asistencia Médica:</span>
+                            <span class="item-value" style="color: #0284C7;">${fechaAsistencia}</span>
+                        </div>
+                        <div class="item-row">
+                            <span class="item-label">Tipo de Servicio:</span>
+                            <span class="item-value">${tipoAtencion}</span>
+                        </div>
+                        <div class="item-row">
+                            <span class="item-label">Diagnóstico / Motivo Clínico:</span>
+                            <span class="item-value">${diagnostico}</span>
+                        </div>
+                        <div class="item-row">
+                            <span class="item-label">Personal de Salud Actuante:</span>
+                            <span class="item-value">${profesional}</span>
+                        </div>
+                        <div class="item-row">
+                            <span class="item-label">Centro de Salud Emisor:</span>
+                            <span class="item-value">${centroNombre}</span>
+                        </div>
+                        <div class="item-row">
+                            <span class="item-label">Fecha de Verificación Online:</span>
+                            <span class="item-value">${fechaHoy}</span>
+                        </div>
+
+                        ${signosList.length > 0 ? `
+                            <div style="margin-top: 14px; border-top: 1px dashed #E2E8F0; padding-top: 10px;">
+                                <span style="font-size: 0.75rem; font-weight: 700; color: #64748B; text-transform: uppercase;">Signos Vitales Registrados al Momento de la Atención:</span>
+                                <div class="signos-grid">
+                                    ${signosList.map(s => `<div class="signo-pill"><span>${s.label}</span><strong>${s.value}</strong></div>`).join('')}
+                                </div>
+                            </div>
+                        ` : ''}
+
+                        <div class="stamp-box">
+                            <div class="stamp-info">
+                                <strong>Validez Médico-Legal Oficial</strong>
+                                Certificación válida ante autoridades educativas, laborales, deportivas e institucionales de la República Bolivariana de Venezuela.
+                            </div>
+                            <div class="stamp-badge">FIRMA DIGITAL CDI</div>
+                        </div>
+                    </div>
+
+                    <div class="btn-group">
+                        <button class="btn-primary" onclick="window.print()">
+                            ${SVG.printer} Imprimir / Guardar en PDF
+                        </button>
+                        <a href="/" class="btn-secondary">Volver al Sistema</a>
+                    </div>
+
+                    <div class="disclaimer">
+                        Portal Aislado de Consulta Pública · Ministerio del Poder Popular para la Salud (MPPS) · Ley Orgánica de Salud. Este sistema certifica la autenticidad del documento sin revelar datos clínicos sensibles restringidos al secreto profesional.
+                    </div>
+                </div>
+            </body>
+            </html>
+        `);
+    } catch (e) {
+        console.error('Error al verificar constancia médica:', e);
         res.status(500).send('Error interno en el servidor de verificación');
     }
 });

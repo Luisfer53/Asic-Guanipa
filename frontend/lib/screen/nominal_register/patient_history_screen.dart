@@ -1,8 +1,8 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:asis_guanipa_frontend/services/api_service.dart';
 import 'package:asis_guanipa_frontend/models/paciente.dart';
 import 'package:asis_guanipa_frontend/screen/nominal_register/carnet_vacunacion_dialog.dart';
-import 'package:asis_guanipa_frontend/screen/nominal_register/recipe_digital_dialog.dart';
+import 'package:asis_guanipa_frontend/screen/nominal_register/constancia_atencion_dialog.dart';
 
 class PatientHistoryScreen extends StatefulWidget {
   final String pacienteId;
@@ -88,51 +88,136 @@ class _PatientHistoryScreenState extends State<PatientHistoryScreen>
         backgroundColor: const Color(0xFF1565C0),
         foregroundColor: Colors.white,
         actions: [
-          Padding(
-            padding: const EdgeInsets.only(right: 8),
-            child: ElevatedButton.icon(
-              onPressed: () {
-                if (_historial != null && _historial!['paciente'] != null) {
-                  final pacienteObj = Paciente.fromJson(_historial!['paciente']);
-                  RecipeDigitalDialog.show(context, paciente: pacienteObj);
-                } else {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Cargando información del paciente...')),
-                  );
-                }
-              },
-              icon: const Icon(Icons.receipt_long_rounded, size: 16),
-              label: const Text('Récipe Digital (QR)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF1E3A8A),
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-              ),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.only(right: 12),
-            child: ElevatedButton.icon(
-              onPressed: () {
-                if (_historial != null && _historial!['paciente'] != null) {
-                  final pacienteObj = Paciente.fromJson(_historial!['paciente']);
-                  CarnetVacunacionDialog.show(context, paciente: pacienteObj);
-                } else {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Cargando información para el carnet...')),
-                  );
-                }
-              },
-              icon: const Icon(Icons.qr_code_2_rounded, size: 16),
-              label: const Text('Carnet Digital (QR)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF00897B),
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-              ),
-            ),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final isNarrow = MediaQuery.of(context).size.width < 900;
+              if (isNarrow) {
+                return Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.verified_rounded, color: Colors.white),
+                      tooltip: 'Emitir Constancia Médica (QR)',
+                      onPressed: () {
+                        if (_historial != null && _historial!['paciente'] != null) {
+                          final pacienteObj = Paciente.fromJson(_historial!['paciente']);
+                          ConstanciaAtencionDialog.show(context, paciente: pacienteObj);
+                        } else {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Cargando información del paciente...')),
+                          );
+                        }
+                      },
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.verified_rounded, color: Colors.white),
+                      tooltip: 'Constancia Oficial de Atención (QR)',
+                      onPressed: () {
+                        if (_historial != null && _historial!['paciente'] != null) {
+                          final pacienteObj = Paciente.fromJson(_historial!['paciente']);
+                          ConstanciaAtencionDialog.show(context, paciente: pacienteObj);
+                        } else {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Cargando información del paciente...')),
+                          );
+                        }
+                      },
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.qr_code_2_rounded, color: Colors.white),
+                      tooltip: 'Carnet Digital de Vacunación (QR)',
+                      onPressed: () {
+                        if (_historial != null && _historial!['paciente'] != null) {
+                          final pacienteObj = Paciente.fromJson(_historial!['paciente']);
+                          CarnetVacunacionDialog.show(context, paciente: pacienteObj);
+                        } else {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Cargando información del paciente...')),
+                          );
+                        }
+                      },
+                    ),
+                  ],
+                );
+              }
+
+              return Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Constancia Oficial de Atención
+                  Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: ElevatedButton.icon(
+                      onPressed: () {
+                        if (_historial != null && _historial!['paciente'] != null) {
+                          final pacienteObj = Paciente.fromJson(_historial!['paciente']);
+                          ConstanciaAtencionDialog.show(context, paciente: pacienteObj);
+                        } else {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Cargando información del paciente...')),
+                          );
+                        }
+                      },
+                      icon: const Icon(Icons.verified_rounded, size: 16),
+                      label: const Text('Constancia (QR)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF0284C7),
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      ),
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: ElevatedButton.icon(
+                      onPressed: () {
+                        if (_historial != null && _historial!['paciente'] != null) {
+                          final pacienteObj = Paciente.fromJson(_historial!['paciente']);
+                          ConstanciaAtencionDialog.show(context, paciente: pacienteObj);
+                        } else {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Cargando información del paciente...')),
+                          );
+                        }
+                      },
+                      icon: const Icon(Icons.verified_rounded, size: 16),
+                      label: const Text('Constancia Médica (QR)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF0284C7),
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      ),
+                    ),
+                  ),
+                  // Carnet Vacunación
+                  Padding(
+                    padding: const EdgeInsets.only(right: 12),
+                    child: ElevatedButton.icon(
+                      onPressed: () {
+                        if (_historial != null && _historial!['paciente'] != null) {
+                          final pacienteObj = Paciente.fromJson(_historial!['paciente']);
+                          CarnetVacunacionDialog.show(context, paciente: pacienteObj);
+                        } else {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Cargando información para el carnet...')),
+                          );
+                        }
+                      },
+                      icon: const Icon(Icons.qr_code_2_rounded, size: 16),
+                      label: const Text('Carnet (QR)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF00897B),
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      ),
+                    ),
+                  ),
+                ],
+              );
+            },
           ),
         ],
         bottom: TabBar(
@@ -221,6 +306,32 @@ class _PatientHistoryScreenState extends State<PatientHistoryScreen>
       elevation: 2,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: ExpansionTile(
+        initiallyExpanded: true,
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            IconButton(
+              icon: const Icon(Icons.verified_rounded, color: Color(0xFF0284C7), size: 22),
+              tooltip: 'Emitir Constancia Médica (QR)',
+              onPressed: () {
+                if (_historial != null && _historial!['paciente'] != null) {
+                  final pacienteObj = Paciente.fromJson(_historial!['paciente']);
+                  ConstanciaAtencionDialog.show(context, paciente: pacienteObj, atencion: a);
+                }
+              },
+            ),
+            IconButton(
+              icon: const Icon(Icons.verified_rounded, color: Color(0xFF0284C7), size: 22),
+              tooltip: 'Constancia Oficial de Atención (QR)',
+              onPressed: () {
+                if (_historial != null && _historial!['paciente'] != null) {
+                  final pacienteObj = Paciente.fromJson(_historial!['paciente']);
+                  ConstanciaAtencionDialog.show(context, paciente: pacienteObj, atencion: a);
+                }
+              },
+            ),
+          ],
+        ),
         leading: CircleAvatar(
           backgroundColor: (isConsulta ? const Color(0xFF1565C0) : const Color(0xFF2E7D32)).withValues(alpha: 0.12),
           child: Icon(
@@ -309,7 +420,7 @@ class _PatientHistoryScreenState extends State<PatientHistoryScreen>
                   ),
                 ],
                 if (a['tratamiento_indicado'] != null && (a['tratamiento_indicado'] as String).isNotEmpty) ...[
-                  _sectionLabel('Tratamiento Indicado / Récipe'),
+                  _sectionLabel('Tratamiento Indicado / Indicaciones'),
                   Container(
                     width: double.infinity,
                     margin: const EdgeInsets.only(bottom: 8),
@@ -473,6 +584,45 @@ class _PatientHistoryScreenState extends State<PatientHistoryScreen>
                     );
                   }),
                 ],
+                const SizedBox(height: 12),
+                const Divider(height: 1),
+                const SizedBox(height: 10),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    OutlinedButton.icon(
+                      onPressed: () {
+                        if (_historial != null && _historial!['paciente'] != null) {
+                          final pacienteObj = Paciente.fromJson(_historial!['paciente']);
+                          ConstanciaAtencionDialog.show(context, paciente: pacienteObj, atencion: a);
+                        }
+                      },
+                      icon: const Icon(Icons.verified_rounded, size: 15, color: Color(0xFF0284C7)),
+                      label: const Text('Constancia Oficial (QR)', style: TextStyle(fontSize: 12, color: Color(0xFF0284C7), fontWeight: FontWeight.bold)),
+                      style: OutlinedButton.styleFrom(
+                        side: const BorderSide(color: Color(0xFFBAE6FD)),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      ),
+                    ),
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                  ],
+                ),
               ],
             ),
           ),

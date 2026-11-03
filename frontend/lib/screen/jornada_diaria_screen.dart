@@ -1,4 +1,4 @@
-import 'dart:async';
+﻿import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -12,7 +12,7 @@ import 'package:asis_guanipa_frontend/components/apertura_guardia_dialog.dart';
 import 'nominal_register/create_patient_dialog.dart';
 import 'nominal_register/quick_patient_dialog.dart';
 import 'nominal_register/carnet_vacunacion_dialog.dart';
-import 'nominal_register/recipe_digital_dialog.dart';
+import 'nominal_register/constancia_atencion_dialog.dart';
 import 'nominal_register/crear_jornada_dialog.dart';
 import 'nominal_register/gestionar_jornadas_dialog.dart';
 
@@ -439,78 +439,90 @@ class _JornadaDiariaScreenState extends State<JornadaDiariaScreen> {
             ),
           ],
         ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'La dosis para ${paciente.nombreCompleto} ha sido asentada en el sistema.',
-              style: const TextStyle(fontSize: 14, color: Color(0xFF334155)),
-            ),
-            const SizedBox(height: 14),
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: const Color(0xFFEFF6FF),
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: const Color(0xFFBFDBFE)),
-              ),
-              child: Row(
-                children: [
-                  const Icon(Icons.badge_rounded, color: Color(0xFF1D4ED8), size: 24),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'Carnet Digital Oficial MPPS',
-                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF1E3A8A)),
-                        ),
-                        Text(
-                          'Generado con QR de autenticidad para control y entrega inmediata',
-                          style: TextStyle(fontSize: 11, color: Colors.blue.shade800),
-                        ),
-                      ],
-                    ),
+        content: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 480),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(
+                  'La dosis para ${paciente.nombreCompleto} ha sido asentada en el sistema.',
+                  style: const TextStyle(fontSize: 14, color: Color(0xFF334155)),
+                ),
+                const SizedBox(height: 14),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFEFF6FF),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: const Color(0xFFBFDBFE)),
                   ),
-                ],
-              ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.badge_rounded, color: Color(0xFF1D4ED8), size: 24),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Carnet Digital Oficial MPPS',
+                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF1E3A8A)),
+                            ),
+                            Text(
+                              'Generado con QR de autenticidad para control y entrega inmediata',
+                              style: TextStyle(fontSize: 11, color: Colors.blue.shade800),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+                const Text(
+                  'Documentos Oficiales Disponibles para este Paciente:',
+                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF1E293B)),
+                ),
+                const SizedBox(height: 10),
+                ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF0284C7),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  ),
+                  onPressed: () {
+                    Navigator.pop(ctx);
+                    ConstanciaAtencionDialog.show(context, paciente: paciente);
+                  },
+                  icon: const Icon(Icons.verified_rounded, size: 20),
+                  label: const Text('Emitir Constancia Médica (QR)', style: TextStyle(fontWeight: FontWeight.bold)),
+                ),
+                const SizedBox(height: 8),
+                OutlinedButton.icon(
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: const Color(0xFF1565C0),
+                    side: const BorderSide(color: Color(0xFF1565C0)),
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  ),
+                  onPressed: () {
+                    Navigator.pop(ctx);
+                    CarnetVacunacionDialog.show(context, paciente: paciente, vacunadorNombre: vacunador);
+                  },
+                  icon: const Icon(Icons.badge_outlined, size: 20),
+                  label: const Text('Ver / Imprimir Carnet Digital', style: TextStyle(fontWeight: FontWeight.bold)),
+                ),
+              ],
             ),
-          ],
+          ),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Siguiente paciente'),
-          ),
-          OutlinedButton.icon(
-            style: OutlinedButton.styleFrom(
-              foregroundColor: const Color(0xFF1E3A8A),
-              side: const BorderSide(color: Color(0xFF1E3A8A)),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
-            ),
-            onPressed: () {
-              Navigator.pop(ctx);
-              RecipeDigitalDialog.show(context, paciente: paciente, medicoNombre: vacunador);
-            },
-            icon: const Icon(Icons.receipt_long_rounded, size: 18),
-            label: const Text('Emitir Récipe Digital', style: TextStyle(fontWeight: FontWeight.bold)),
-          ),
-          ElevatedButton.icon(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF1565C0),
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
-            ),
-            onPressed: () {
-              Navigator.pop(ctx);
-              CarnetVacunacionDialog.show(context, paciente: paciente, vacunadorNombre: vacunador);
-            },
-            icon: const Icon(Icons.badge_outlined, size: 18),
-            label: const Text('Ver / Imprimir Carnet', style: TextStyle(fontWeight: FontWeight.bold)),
+            child: const Text('Cerrar / Siguiente paciente'),
           ),
         ],
       ),
@@ -1435,7 +1447,74 @@ class _JornadaDiariaScreenState extends State<JornadaDiariaScreen> {
                 ),
               ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 12),
+
+            // Documentos Oficiales de Salida Rápida (Récipe & Constancia)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: const Color(0xFFCBD5E1)),
+              ),
+              child: Wrap(
+                spacing: 10,
+                runSpacing: 8,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                alignment: WrapAlignment.spaceBetween,
+                children: [
+                  const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.assignment_outlined, color: Color(0xFF475569), size: 18),
+                      SizedBox(width: 8),
+                      Text(
+                        'Documentos del Paciente:',
+                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF334155)),
+                      ),
+                    ],
+                  ),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 6,
+                    children: [
+                      OutlinedButton.icon(
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: const Color(0xFF1E3A8A),
+                          side: const BorderSide(color: Color(0xFFBFDBFE)),
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        ),
+                        onPressed: () {
+                          ConstanciaAtencionDialog.show(
+                            context,
+                            paciente: p,
+                            profesionalNombre: _getVacunadorActual(),
+                            motivoAtencion: 'Inmunización / Atención Sanitaria Preventiva',
+                          );
+                        },
+                        icon: const Icon(Icons.verified_rounded, size: 15),
+                        label: const Text('Emitir Constancia Médica (QR)', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                      ),
+                      OutlinedButton.icon(
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: const Color(0xFF0284C7),
+                          side: const BorderSide(color: Color(0xFFBAE6FD)),
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        ),
+                        onPressed: () {
+                          ConstanciaAtencionDialog.show(context, paciente: p);
+                        },
+                        icon: const Icon(Icons.verified_rounded, size: 15),
+                        label: const Text('Constancia Oficial (QR)', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
 
             // Card 1: Biológico y Aplicación
             Card(

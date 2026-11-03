@@ -1,4 +1,4 @@
-import 'dart:async';
+﻿import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart' show kIsWeb;
@@ -9,12 +9,10 @@ import 'package:asis_guanipa_frontend/services/api_service.dart';
 import 'package:asis_guanipa_frontend/screen/nominal_register/create_patient_dialog.dart';
 import 'package:asis_guanipa_frontend/screen/nominal_register/quick_patient_dialog.dart';
 import 'package:asis_guanipa_frontend/screen/nominal_register/carnet_vacunacion_dialog.dart';
-import 'package:asis_guanipa_frontend/screen/nominal_register/recipe_digital_dialog.dart';
 import 'package:asis_guanipa_frontend/screen/nominal_register/constancia_atencion_dialog.dart';
 import 'package:asis_guanipa_frontend/screen/nominal_register/patient_history_screen.dart';
 
-// ignore: avoid_web_libraries_in_flutter
-import 'dart:html' as html;
+import 'package:asis_guanipa_frontend/utils/web_helper.dart' as webHelper;
 
 /// ─────────────────────────────────────────────────────────────────────────────
 /// REGISTRO NOMINAL DE PACIENTES — DATA GRID COMPACTO Y PROFESIONAL (FASE 4)
@@ -291,12 +289,7 @@ class _ListPatientsState extends State<ListPatients> {
     final bytes = utf8.encode('\uFEFF$csvContent'); // UTF-8 BOM para Excel
 
     if (kIsWeb) {
-      final blob = html.Blob([bytes], 'text/csv;charset=utf-8');
-      final url = html.Url.createObjectUrlFromBlob(blob);
-      final anchor = html.AnchorElement(href: url)
-        ..setAttribute('download', 'censo_nominal_guanipa_${DateTime.now().millisecondsSinceEpoch}.csv')
-        ..click();
-      html.Url.revokeObjectUrl(url);
+      webHelper.downloadCsvBytes(bytes, 'censo_nominal_guanipa_${DateTime.now().millisecondsSinceEpoch}.csv');
 
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -845,11 +838,11 @@ class _ListPatientsState extends State<ListPatients> {
               child: Table(
                 columnWidths: const {
                   0: FlexColumnWidth(1.6), // Cédula / Código
-                  1: FlexColumnWidth(2.6), // Paciente
-                  2: FlexColumnWidth(2.2), // Sector / Habitación
-                  3: FlexColumnWidth(2.0), // Contacto
-                  4: FlexColumnWidth(1.6), // Datos Clínicos
-                  5: FlexColumnWidth(2.3), // Acciones (con Constancia)
+                  1: FlexColumnWidth(2.5), // Paciente
+                  2: FlexColumnWidth(2.1), // Sector / Habitación
+                  3: FlexColumnWidth(1.9), // Contacto
+                  4: FlexColumnWidth(1.5), // Datos Clínicos
+                  5: FlexColumnWidth(2.8), // Acciones (con Constancia y Récipe)
                 },
                 children: [
                   // ─── Cabecera de la Tabla ─────────────────────────────────────
@@ -1078,73 +1071,112 @@ class _ListPatientsState extends State<ListPatients> {
           ),
         ),
 
-        // 6. Acciones Rápidas (Icon Buttons compactos)
+        // 6. Acciones Rápidas (Icon Buttons compactos con soporte responsive)
         Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
+          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+          child: Wrap(
+            alignment: WrapAlignment.center,
+            spacing: 2,
+            runSpacing: 2,
             children: [
               // Ficha Historial
-              IconButton(
-                icon: const Icon(Icons.folder_shared_rounded, size: 18, color: Color(0xFF1565C0)),
-                tooltip: 'Ver Ficha e Historial',
-                splashRadius: 18,
-                onPressed: () {
-                  final String identifier = p.cedula.isNotEmpty ? p.cedula : p.idPaciente.toString();
-                  Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) => PatientHistoryScreen(
-                        pacienteId: identifier,
-                        nombrePaciente: nombreCompleto,
+              Tooltip(
+                message: 'Ver Ficha e Historial',
+                child: IconButton(
+                  icon: const Icon(Icons.folder_shared_rounded, size: 18, color: Color(0xFF1565C0)),
+                  tooltip: 'Ver Ficha e Historial',
+                  splashRadius: 18,
+                  constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                  padding: const EdgeInsets.all(5),
+                  onPressed: () {
+                    final String identifier = p.cedula.isNotEmpty ? p.cedula : p.idPaciente.toString();
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => PatientHistoryScreen(
+                          pacienteId: identifier,
+                          nombrePaciente: nombreCompleto,
+                        ),
                       ),
-                    ),
-                  );
-                },
+                    );
+                  },
+                ),
               ),
               // Carnet Digital con QR
-              IconButton(
-                icon: const Icon(Icons.qr_code_2_rounded, size: 18, color: Color(0xFF0D9488)),
-                tooltip: 'Generar Carnet Digital (QR)',
-                splashRadius: 18,
-                onPressed: () {
-                  CarnetVacunacionDialog.show(context, paciente: p);
-                },
+              Tooltip(
+                message: 'Generar Carnet Digital (QR)',
+                child: IconButton(
+                  icon: const Icon(Icons.qr_code_2_rounded, size: 18, color: Color(0xFF0D9488)),
+                  tooltip: 'Generar Carnet Digital (QR)',
+                  splashRadius: 18,
+                  constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                  padding: const EdgeInsets.all(5),
+                  onPressed: () {
+                    CarnetVacunacionDialog.show(context, paciente: p);
+                  },
+                ),
               ),
               // Constancia Oficial de Atención con QR
-              IconButton(
-                icon: const Icon(Icons.verified_rounded, size: 18, color: Color(0xFF0284C7)),
-                tooltip: 'Constancia Oficial de Atención (QR)',
-                splashRadius: 18,
-                onPressed: () {
-                  ConstanciaAtencionDialog.show(context, paciente: p);
-                },
+              Tooltip(
+                message: 'Constancia Oficial de Atención (QR)',
+                child: IconButton(
+                  icon: const Icon(Icons.verified_rounded, size: 18, color: Color(0xFF0284C7)),
+                  tooltip: 'Constancia Oficial de Atención (QR)',
+                  splashRadius: 18,
+                  constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                  padding: const EdgeInsets.all(5),
+                  onPressed: () {
+                    ConstanciaAtencionDialog.show(context, paciente: p);
+                  },
+                ),
               ),
-              // Récipe Digital Oficial con QR
-              IconButton(
-                icon: const Icon(Icons.receipt_long_rounded, size: 18, color: Color(0xFF1E3A8A)),
-                tooltip: 'Emitir Récipe Digital Oficial (QR)',
-                splashRadius: 18,
-                onPressed: () {
-                  RecipeDigitalDialog.show(context, paciente: p);
-                },
+              // Récipe Digital Oficial con QR (Destacado)
+              Tooltip(
+                message: 'Emitir Constancia Médica Oficial (QR)',
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFEFF6FF),
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(color: const Color(0xFFBAE6FD), width: 0.8),
+                  ),
+                  child: IconButton(
+                    icon: const Icon(Icons.verified_rounded, size: 18, color: Color(0xFF0284C7)),
+                    tooltip: 'Emitir Constancia Médica (QR)',
+                    splashRadius: 18,
+                    constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                    padding: const EdgeInsets.all(5),
+                    onPressed: () {
+                      ConstanciaAtencionDialog.show(context, paciente: p);
+                    },
+                  ),
+                ),
               ),
               // Vacunar rápido (Directo a Inmunización)
-              IconButton(
-                icon: const Icon(Icons.vaccines_rounded, size: 18, color: Color(0xFF2E7D32)),
-                tooltip: 'Registrar Vacunación',
-                splashRadius: 18,
-                onPressed: () {
-                  context.go('/jornada-diaria');
-                },
+              Tooltip(
+                message: 'Registrar Vacunación',
+                child: IconButton(
+                  icon: const Icon(Icons.vaccines_rounded, size: 18, color: Color(0xFF2E7D32)),
+                  tooltip: 'Registrar Vacunación',
+                  splashRadius: 18,
+                  constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                  padding: const EdgeInsets.all(5),
+                  onPressed: () {
+                    context.go('/jornada-diaria');
+                  },
+                ),
               ),
               // Consulta Médica
-              IconButton(
-                icon: const Icon(Icons.medical_services_rounded, size: 18, color: Color(0xFFD97706)),
-                tooltip: 'Atender Consulta Médica',
-                splashRadius: 18,
-                onPressed: () {
-                  context.go('/consulta-medica');
-                },
+              Tooltip(
+                message: 'Atender Consulta Médica',
+                child: IconButton(
+                  icon: const Icon(Icons.medical_services_rounded, size: 18, color: Color(0xFFD97706)),
+                  tooltip: 'Atender Consulta Médica',
+                  splashRadius: 18,
+                  constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                  padding: const EdgeInsets.all(5),
+                  onPressed: () {
+                    context.go('/consulta-medica');
+                  },
+                ),
               ),
             ],
           ),
@@ -1310,27 +1342,18 @@ class _ListPatientsState extends State<ListPatients> {
                 ),
                 onPressed: () => CarnetVacunacionDialog.show(context, paciente: p),
               ),
-              // Constancia QR
-              OutlinedButton.icon(
-                icon: const Icon(Icons.verified_rounded, size: 14, color: Color(0xFF0284C7)),
-                label: const Text('Constancia', style: TextStyle(fontSize: 11, color: Color(0xFF0284C7))),
-                style: OutlinedButton.styleFrom(
+              // Constancia Médica QR
+              ElevatedButton.icon(
+                icon: const Icon(Icons.verified_rounded, size: 14, color: Colors.white),
+                label: const Text('Constancia Médica (QR)', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white)),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF0284C7),
+                  foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                  side: const BorderSide(color: Color(0xFFBAE6FD)),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  elevation: 0,
                 ),
                 onPressed: () => ConstanciaAtencionDialog.show(context, paciente: p),
-              ),
-              // Récipe QR
-              OutlinedButton.icon(
-                icon: const Icon(Icons.receipt_long_rounded, size: 14, color: Color(0xFF1E3A8A)),
-                label: const Text('Récipe', style: TextStyle(fontSize: 11, color: Color(0xFF1E3A8A))),
-                style: OutlinedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                  side: const BorderSide(color: Color(0xFFBFDBFE)),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                ),
-                onPressed: () => RecipeDigitalDialog.show(context, paciente: p),
               ),
               // Vacunar
               ElevatedButton.icon(

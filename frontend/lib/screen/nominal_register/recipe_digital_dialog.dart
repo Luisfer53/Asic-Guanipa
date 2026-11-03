@@ -7,8 +7,7 @@ import 'package:asis_guanipa_frontend/models/paciente.dart';
 import 'package:asis_guanipa_frontend/services/api_service.dart';
 import 'package:asis_guanipa_frontend/providers/auth_providers.dart';
 
-// ignore: avoid_web_libraries_in_flutter
-import 'dart:html' as html;
+import 'package:asis_guanipa_frontend/utils/web_helper.dart' as webHelper;
 
 /// ─────────────────────────────────────────────────────────────────────────────
 /// RÉCIPE DIGITAL OFICIAL & INDICACIONES MÉDICAS
@@ -291,6 +290,12 @@ class _RecipeDigitalDialogState extends State<RecipeDigitalDialog>
       return;
     }
 
+    // 1. Abrir la ventana en blanco inmediatamente en el evento de clic del usuario para evitar bloqueo de popup
+    dynamic ventana;
+    try {
+      ventana = webHelper.openBlankWindow();
+    } catch (_) {}
+
     final hash = _generarHashVerificacion();
     final urlQR = _generarUrlVerificacion(hash);
 
@@ -304,32 +309,14 @@ class _RecipeDigitalDialogState extends State<RecipeDigitalDialog>
 
     final htmlContent = _construirHtmlImpresion(hash, urlQR, qrBase64);
 
-    try {
-      final blob = html.Blob([htmlContent], 'text/html;charset=utf-8');
-      final blobUrl = html.Url.createObjectUrlFromBlob(blob);
-      final ventana = html.window.open(blobUrl, '_blank');
-
-      if (ventana == null && mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Por favor permite ventanas emergentes (pop-ups) para imprimir.'),
-            backgroundColor: Color(0xFFD97706),
-          ),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error al preparar impresión: $e'),
-            backgroundColor: const Color(0xFFDC2626),
-          ),
-        );
-      }
-    }
+    await _lanzarImpresionWeb(htmlContent, ventana);
   }
 
-  String _construirHtmlImpresion(String hash, String urlQR, String? qrBase64) {
+  Future<void> _lanzarImpresionWeb(String htmlContent, [dynamic ventanaPrevia]) async {
+    await webHelper.openHtmlPrint(htmlContent, ventanaPrevia);
+  }
+
+    String _construirHtmlImpresion(String hash, String urlQR, String? qrBase64) {
     final now = DateTime.now();
     final fechaHoy = '${now.day.toString().padLeft(2, '0')}/${now.month.toString().padLeft(2, '0')}/${now.year}';
     final horaHoy = '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}';
@@ -971,63 +958,6 @@ class _RecipeDigitalDialogState extends State<RecipeDigitalDialog>
       ),
     );
   }
-        children: [
-          Row(
-            children: [
-              const Icon(Icons.person_rounded, color: _primary, size: 18),
-              const SizedBox(width: 8),
-              const Text('Datos del Paciente y Motivo de Consulta',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Color(0xFF0F172A))),
-              const Spacer(),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFEFF6FF),
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                child: Text(
-                  'Edad: ${widget.paciente.edadFormateada} · ${widget.paciente.sexoFormateado}',
-                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: _primary),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 14),
-          Row(
-            children: [
-              Expanded(
-                flex: 3,
-                child: TextField(
-                  controller: _diagnosticoController,
-                  decoration: const InputDecoration(
-                    labelText: 'Diagnóstico Clínico / Motivo de Prescripción',
-                    prefixIcon: Icon(Icons.healing_rounded, size: 18),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(8))),
-                    contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                flex: 1,
-                child: TextField(
-                  controller: _pesoController,
-                  keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(
-                    labelText: 'Peso (Kg)',
-                    hintText: 'Ej. 14.5',
-                    prefixIcon: Icon(Icons.monitor_weight_outlined, size: 18),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(8))),
-                    contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
 
   Widget _buildPresetsBar() {
     return Column(
@@ -1096,7 +1026,7 @@ class _RecipeDigitalDialogState extends State<RecipeDigitalDialog>
     );
   }
 
-  Widget _buildAddMedicationCard() {
+  Widget _buildAddMedicationCard([bool isMobile = false]) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -1331,7 +1261,7 @@ class _RecipeDigitalDialogState extends State<RecipeDigitalDialog>
     );
   }
 
-  Widget _buildDoctorAndIndicationsSection() {
+  Widget _buildDoctorAndIndicationsSection([bool isMobile = false]) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1400,18 +1330,18 @@ class _RecipeDigitalDialogState extends State<RecipeDigitalDialog>
     );
   }
 
-  Widget _buildVistaPreviaTab() {
+  Widget _buildVistaPreviaTab([bool isMobile = false]) {
     final now = DateTime.now();
     final fechaHoy = '${now.day.toString().padLeft(2, '0')}/${now.month.toString().padLeft(2, '0')}/${now.year}';
     final hash = _generarHashVerificacion();
     final urlQR = _generarUrlVerificacion(hash);
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(24),
+      padding: EdgeInsets.all(isMobile ? 12 : 24),
       child: Center(
         child: Container(
           constraints: const BoxConstraints(maxWidth: 860),
-          padding: const EdgeInsets.all(24),
+          padding: EdgeInsets.all(isMobile ? 14 : 24),
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(12),
@@ -1427,6 +1357,39 @@ class _RecipeDigitalDialogState extends State<RecipeDigitalDialog>
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              // Botón de acción rápida en la vista previa
+              Container(
+                margin: const EdgeInsets.only(bottom: 16),
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFEFF6FF),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: const Color(0xFFBFDBFE)),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.print_rounded, color: Color(0xFF1E3A8A), size: 22),
+                    const SizedBox(width: 10),
+                    const Expanded(
+                      child: Text(
+                        'Vista previa del formato oficial listo para emitir o imprimir.',
+                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF1E3A8A)),
+                      ),
+                    ),
+                    ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF1E3A8A),
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      ),
+                      onPressed: _imprimirRecipe,
+                      icon: const Icon(Icons.print_rounded, size: 16),
+                      label: const Text('Imprimir Ahora', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                    ),
+                  ],
+                ),
+              ),
               // Barra simulada de las dos mitades
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -1661,7 +1624,53 @@ class _RecipeDigitalDialogState extends State<RecipeDigitalDialog>
     );
   }
 
-  Widget _buildDialogFooter() {
+  Widget _buildDialogFooter([bool isMobile = false]) {
+    if (isMobile) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: const BoxDecoration(
+          color: Color(0xFFF8FAFC),
+          border: Border(top: BorderSide(color: Color(0xFFE2E8F0))),
+          borderRadius: BorderRadius.only(
+            bottomLeft: Radius.circular(20),
+            bottomRight: Radius.circular(20),
+          ),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            ElevatedButton.icon(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: _primary,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+              onPressed: _imprimirRecipe,
+              icon: const Icon(Icons.print_rounded, size: 18),
+              label: const Text('Imprimir Récipe / Guardar PDF',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+            ),
+            const SizedBox(height: 8),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  '${_medicamentos.length} medicamento(s)',
+                  style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF64748B)),
+                ),
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Cerrar', style: TextStyle(color: Color(0xFF64748B), fontSize: 12)),
+                ),
+              ],
+            ),
+          ],
+        ),
+      );
+    }
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
       decoration: const BoxDecoration(

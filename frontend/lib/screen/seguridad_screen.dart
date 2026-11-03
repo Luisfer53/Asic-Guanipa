@@ -4,8 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:asis_guanipa_frontend/services/api_service.dart';
 import 'package:asis_guanipa_frontend/components/modulo_app_bar.dart';
 
-// ignore: avoid_web_libraries_in_flutter
-import 'dart:html' as html;
+import 'package:asis_guanipa_frontend/utils/web_helper.dart' as webHelper;
 
 class SeguridadScreen extends StatefulWidget {
   const SeguridadScreen({super.key});
@@ -189,12 +188,7 @@ class _SeguridadScreenState extends State<SeguridadScreen>
     }
 
     final bytes = utf8.encode(buffer.toString());
-    final blob = html.Blob([bytes], 'text/csv;charset=utf-8');
-    final url = html.Url.createObjectUrlFromBlob(blob);
-    final anchor = html.AnchorElement(href: url)
-      ..setAttribute('download', 'bitacora_auditoria_asic_guanipa_${DateTime.now().toString().substring(0, 10)}.csv')
-      ..click();
-    html.Url.revokeObjectUrl(url);
+    webHelper.downloadCsvBytes(bytes, 'bitacora_auditoria_asic_guanipa_${DateTime.now().toString().substring(0, 10)}.csv');
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(

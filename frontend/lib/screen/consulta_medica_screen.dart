@@ -1,4 +1,4 @@
-import 'dart:async';
+﻿import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
@@ -8,7 +8,7 @@ import 'package:asis_guanipa_frontend/models/paciente.dart';
 import 'package:asis_guanipa_frontend/providers/guardia_provider.dart';
 import 'package:asis_guanipa_frontend/components/apertura_guardia_dialog.dart';
 import 'nominal_register/quick_patient_dialog.dart';
-import 'nominal_register/recipe_digital_dialog.dart';
+import 'nominal_register/constancia_atencion_dialog.dart';
 
 class _InsumoItem {
   Map<String, dynamic>? lote;
@@ -288,7 +288,8 @@ class _ConsultaMedicaScreenState extends State<ConsultaMedicaScreen> {
 
     if (res['success'] == true) {
       await guardiaProv.registrarAtencion();
-      _showSuccess('Consulta médica de ${_selectedPaciente!.nombreCompleto} registrada exitosamente');
+      final pacienteAtendido = _selectedPaciente!;
+      final diagTexto = _diagnosticoCtrl.text.isNotEmpty ? _diagnosticoCtrl.text : _motivoConsultaCtrl.text;
 
       // Limpiar y regresar al buscador para atender al siguiente paciente
       setState(() {
@@ -312,9 +313,135 @@ class _ConsultaMedicaScreenState extends State<ConsultaMedicaScreen> {
       _searchController.clear();
       _buscarPaciente(explicitQuery: '');
       _searchFocusNode.requestFocus();
+
+      _showSuccessWithRecipe(pacienteAtendido, diagTexto);
+
+      // Diálogo de documentos oficiales con botones destacados
+      if (mounted) {
+        showDialog(
+          context: context,
+          builder: (dlgCtx) => AlertDialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            title: const Row(
+              children: [
+                Icon(Icons.check_circle_rounded, color: Color(0xFF16A34A), size: 28),
+                SizedBox(width: 10),
+                Expanded(child: Text('¡Consulta Registrada!', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold))),
+              ],
+            ),
+            content: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 480),
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text(
+                      'La consulta médica de ${pacienteAtendido.nombreCompleto} ha sido guardada con éxito.',
+                      style: const TextStyle(fontSize: 14, color: Color(0xFF334155), height: 1.3),
+                    ),
+                    const SizedBox(height: 14),
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFEFF6FF),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: const Color(0xFFBFDBFE)),
+                      ),
+                      child: const Row(
+                        children: [
+                          Icon(Icons.verified_rounded, color: Color(0xFF0284C7), size: 24),
+                          SizedBox(width: 10),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Constancia de Asistencia Disponible',
+                                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF0284C7)),
+                                ),
+                                Text(
+                                  'Emita la constancia médica oficial con código QR de verificación para trámites escolares, laborales e institucionales.',
+                                  style: TextStyle(fontSize: 11, color: Color(0xFF0369A1)),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    const Text(
+                      'Documentos para este Paciente:',
+                      style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF1E293B)),
+                    ),
+                    const SizedBox(height: 10),
+                    // BOTÓN PRINCIPAL: CONSTANCIA MÉDICA CON QR
+                    ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF0284C7),
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        elevation: 1,
+                      ),
+                      onPressed: () {
+                        Navigator.pop(dlgCtx);
+                        ConstanciaAtencionDialog.show(
+                          context,
+                          paciente: pacienteAtendido,
+                          motivoAtencion: diagTexto,
+                        );
+                      },
+                      icon: const Icon(Icons.verified_rounded, size: 20),
+                      label: const Text(
+                        'Emitir Constancia Médica (QR)',
+                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(dlgCtx),
+                child: const Text('Cerrar / Siguiente Paciente'),
+              ),
+            ],
+          ),
+        );
+      }
     } else {
       _showError(res['message'] ?? 'Error al registrar consulta médica');
     }
+  }
+
+  void _showSuccessWithRecipe(Paciente paciente, String diag) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            const Icon(Icons.check_circle_rounded, color: Colors.white, size: 20),
+            const SizedBox(width: 10),
+            Expanded(child: Text('Consulta de ${paciente.nombreCompleto} registrada exitosamente')),
+          ],
+        ),
+        action: SnackBarAction(
+          label: 'VER CONSTANCIA',
+          textColor: Colors.amberAccent,
+          onPressed: () => ConstanciaAtencionDialog.show(
+            context,
+            paciente: paciente,
+            motivoAtencion: diag,
+          ),
+        ),
+        backgroundColor: const Color(0xFF16A34A),
+        duration: const Duration(seconds: 7),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      ),
+    );
   }
 
   void _showSuccess(String msg) {
@@ -578,28 +705,65 @@ class _ConsultaMedicaScreenState extends State<ConsultaMedicaScreen> {
                                 borderRadius: BorderRadius.circular(10),
                                 side: BorderSide(color: Colors.grey.shade300),
                               ),
-                              child: ListTile(
-                                leading: CircleAvatar(
-                                  backgroundColor: _primary.withOpacity(0.12),
-                                  child: Icon(Icons.person_rounded, color: _primary),
-                                ),
-                                title: Text(
-                                  p.nombreCompleto,
-                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-                                ),
-                                subtitle: Text(
-                                  'Cédula: ${p.cedula.isNotEmpty ? p.cedula : "Sin cédula"}  |  Sexo: ${p.sexo}  |  Edad: ${p.edad != null ? "${p.edad} años" : "—"}',
-                                  style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
-                                ),
-                                trailing: ElevatedButton(
-                                  onPressed: () => _seleccionarPaciente(p),
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: _primary,
-                                    foregroundColor: Colors.white,
-                                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                                  ),
-                                  child: const Text('Atender en Consulta', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        CircleAvatar(
+                                          backgroundColor: _primary.withOpacity(0.12),
+                                          child: Icon(Icons.person_rounded, color: _primary),
+                                        ),
+                                        const SizedBox(width: 12),
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            children: [
+                                              Text(
+                                                p.nombreCompleto,
+                                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                                              ),
+                                              Text(
+                                                'Cédula: ${p.cedula.isNotEmpty ? p.cedula : "Sin cédula"}  |  Sexo: ${p.sexo}  |  Edad: ${p.edad != null ? "${p.edad} años" : "—"}',
+                                                style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 10),
+                                    Wrap(
+                                      spacing: 8,
+                                      runSpacing: 6,
+                                      children: [
+                                        ElevatedButton.icon(
+                                          onPressed: () => ConstanciaAtencionDialog.show(context, paciente: p),
+                                          icon: const Icon(Icons.verified_rounded, size: 15, color: Colors.white),
+                                          label: const Text('Constancia Médica (QR)', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white)),
+                                          style: ElevatedButton.styleFrom(
+                                            backgroundColor: const Color(0xFF0284C7),
+                                            foregroundColor: Colors.white,
+                                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                          ),
+                                        ),
+                                        ElevatedButton.icon(
+                                          onPressed: () => _seleccionarPaciente(p),
+                                          icon: const Icon(Icons.medical_services_rounded, size: 15),
+                                          style: ElevatedButton.styleFrom(
+                                            backgroundColor: _primary,
+                                            foregroundColor: Colors.white,
+                                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                          ),
+                                          label: const Text('Atender en Consulta', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
                                 ),
                               ),
                             );
@@ -1069,37 +1233,71 @@ class _ConsultaMedicaScreenState extends State<ConsultaMedicaScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
+            Wrap(
+              spacing: 12,
+              runSpacing: 10,
+              alignment: WrapAlignment.spaceBetween,
+              crossAxisAlignment: WrapCrossAlignment.center,
               children: [
-                Icon(Icons.medication_liquid_rounded, color: _teal, size: 22),
-                const SizedBox(width: 8),
-                const Text(
-                  '3. Plan Terapéutico & Despacho de Farmacia (CDI)',
-                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.medication_liquid_rounded, color: _teal, size: 22),
+                    const SizedBox(width: 8),
+                    const Text(
+                      '3. Plan Terapéutico & Despacho de Farmacia (CDI)',
+                      style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+                    ),
+                  ],
                 ),
-                const Spacer(),
-                ElevatedButton.icon(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF1E3A8A),
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                  ),
-                  onPressed: () {
-                    if (_selectedPaciente != null) {
-                      RecipeDigitalDialog.show(
-                        context,
-                        paciente: _selectedPaciente!,
-                        motivoAtencion: _diagnosticoCtrl.text.isNotEmpty
-                            ? _diagnosticoCtrl.text
-                            : _motivoConsultaCtrl.text,
-                      );
-                    } else {
-                      _showError('Seleccione un paciente primero');
-                    }
-                  },
-                  icon: const Icon(Icons.receipt_long_rounded, size: 16),
-                  label: const Text('Emitir Récipe Digital (QR)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 6,
+                  children: [
+                    OutlinedButton.icon(
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: const Color(0xFF0284C7),
+                        side: const BorderSide(color: Color(0xFFBAE6FD)),
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      ),
+                      onPressed: () {
+                        if (_selectedPaciente != null) {
+                          ConstanciaAtencionDialog.show(
+                            context,
+                            paciente: _selectedPaciente!,
+                          );
+                        } else {
+                          _showError('Seleccione un paciente primero');
+                        }
+                      },
+                      icon: const Icon(Icons.verified_rounded, size: 16),
+                      label: const Text('Constancia Oficial (QR)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                    ),
+                    ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF1E3A8A),
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      ),
+                      onPressed: () {
+                        if (_selectedPaciente != null) {
+                          ConstanciaAtencionDialog.show(
+                            context,
+                            paciente: _selectedPaciente!,
+                            motivoAtencion: _diagnosticoCtrl.text.isNotEmpty
+                                ? _diagnosticoCtrl.text
+                                : _motivoConsultaCtrl.text,
+                          );
+                        } else {
+                          _showError('Seleccione un paciente primero');
+                        }
+                      },
+                      icon: const Icon(Icons.verified_rounded, size: 16),
+                      label: const Text('Emitir Constancia Médica (QR)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -1108,7 +1306,7 @@ class _ConsultaMedicaScreenState extends State<ConsultaMedicaScreen> {
               controller: _tratamientoCtrl,
               maxLines: 3,
               decoration: const InputDecoration(
-                labelText: 'Tratamiento Indicado / Récipe Médico *',
+                labelText: 'Tratamiento Indicado / Indicaciones Médicas *',
                 hintText: '1. Medicamento, dosis, vía y horario...\n2. Medidas no farmacológicas...\n3. Pauta de alarma y control.',
                 border: OutlineInputBorder(),
                 alignLabelWithHint: true,
@@ -1119,6 +1317,62 @@ class _ConsultaMedicaScreenState extends State<ConsultaMedicaScreen> {
                 }
                 return null;
               },
+            ),
+            const SizedBox(height: 12),
+            // Banner de Acceso Rápido a la Constancia Médica
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              decoration: BoxDecoration(
+                color: const Color(0xFFEFF6FF),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: const Color(0xFFBFDBFE)),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.verified_rounded, color: Color(0xFF0284C7), size: 24),
+                  const SizedBox(width: 12),
+                  const Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Constancia Médica Oficial (MPPS / CDI)',
+                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF0284C7)),
+                        ),
+                        SizedBox(height: 2),
+                        Text(
+                          'Genere la constancia de asistencia con fecha, diagnóstico y código QR verificable.',
+                          style: TextStyle(fontSize: 11, color: Color(0xFF0369A1)),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF0284C7),
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    ),
+                    onPressed: () {
+                      if (_selectedPaciente != null) {
+                        ConstanciaAtencionDialog.show(
+                          context,
+                          paciente: _selectedPaciente!,
+                          motivoAtencion: _diagnosticoCtrl.text.isNotEmpty
+                              ? _diagnosticoCtrl.text
+                              : _motivoConsultaCtrl.text,
+                        );
+                      } else {
+                        _showError('Seleccione un paciente primero');
+                      }
+                    },
+                    icon: const Icon(Icons.verified_rounded, size: 16),
+                    label: const Text('Emitir Constancia Médica', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                  ),
+                ],
+              ),
             ),
             const SizedBox(height: 20),
 
@@ -1146,7 +1400,7 @@ class _ConsultaMedicaScreenState extends State<ConsultaMedicaScreen> {
               Padding(
                 padding: const EdgeInsets.symmetric(vertical: 8),
                 child: Text(
-                  'No se ha suministrado medicación de farmacia en esta consulta (solo récipe/indicaciones).',
+                  'No se ha suministrado medicación de farmacia en esta consulta (solo indicaciones médicas).',
                   style: TextStyle(fontSize: 12, color: Colors.grey.shade500, fontStyle: FontStyle.italic),
                 ),
               )
@@ -1229,18 +1483,37 @@ class _ConsultaMedicaScreenState extends State<ConsultaMedicaScreen> {
 
   // Botones de Acción
   Widget _buildBotonesAccion() {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.end,
+    return Wrap(
+      alignment: WrapAlignment.end,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      spacing: 12,
+      runSpacing: 10,
       children: [
         OutlinedButton(
           onPressed: () => setState(() => _step = 0),
           style: OutlinedButton.styleFrom(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
           ),
           child: const Text('Cancelar / Regresar'),
         ),
-        const SizedBox(width: 14),
+        OutlinedButton.icon(
+          onPressed: () {
+            if (_selectedPaciente != null) {
+              ConstanciaAtencionDialog.show(context, paciente: _selectedPaciente!);
+            } else {
+              _showError('Seleccione un paciente primero');
+            }
+          },
+          icon: const Icon(Icons.verified_rounded, size: 18, color: Color(0xFF0284C7)),
+          label: const Text('Constancia Oficial (QR)', style: TextStyle(color: Color(0xFF0284C7), fontWeight: FontWeight.bold)),
+          style: OutlinedButton.styleFrom(
+            side: const BorderSide(color: Color(0xFF0284C7)),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          ),
+        ),
+
         ElevatedButton.icon(
           onPressed: _savingConsulta ? null : _guardarConsulta,
           icon: _savingConsulta
@@ -1253,7 +1526,7 @@ class _ConsultaMedicaScreenState extends State<ConsultaMedicaScreen> {
           style: ElevatedButton.styleFrom(
             backgroundColor: _primary,
             foregroundColor: Colors.white,
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+            padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 14),
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
           ),
         ),
