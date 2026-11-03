@@ -87,14 +87,20 @@ app.use('/downloads', express.static(path.join(__dirname, 'downloads')));
 app.use(express.static(path.join(__dirname, 'public')));
 
 // ─── 🌐 FRONTEND WEB (Flutter Web Build) ─────────────────────────────────────
-const defaultBuildPath = path.join(__dirname, 'frontend', 'build', 'web');
-const fallbackPublicPath = path.join(__dirname, 'public');
-// En Render/producción cloud siempre usar public/ (Flutter web ya compilado)
-// En local usar frontend/build/web/ si existe
-const isCloudEnv = !!(process.env.RENDER || process.env.RAILWAY_ENVIRONMENT || process.env.FLY_APP_NAME);
-const flutterWebPath = (!isCloudEnv && fs.existsSync(path.join(defaultBuildPath, 'index.html')))
-    ? defaultBuildPath
-    : fallbackPublicPath;
+// public/ tiene la build de Flutter Web ya compilada y commiteada a git.
+// En local: si existe frontend/build/web/index.html, se usa esa carpeta en su lugar.
+const publicPath   = path.join(__dirname, 'public');
+const devBuildPath = path.join(__dirname, 'frontend', 'build', 'web');
+const isRenderCloud = !!(process.env.RENDER || process.env.RAILWAY_ENVIRONMENT || process.env.FLY_APP_NAME);
+const flutterWebPath = (!isRenderCloud && fs.existsSync(path.join(devBuildPath, 'index.html')))
+    ? devBuildPath
+    : publicPath;
+// Aliases de compatibilidad
+const defaultBuildPath  = devBuildPath;
+const fallbackPublicPath = publicPath;
+console.log('[STARTUP] flutterWebPath =', flutterWebPath);
+console.log('[STARTUP] public/index.html existe:', fs.existsSync(path.join(publicPath, 'index.html')));
+console.log('[STARTUP] RENDER env:', process.env.RENDER || 'no');
 
 const staticOptions = {
     etag: false,
