@@ -1,5 +1,32 @@
 require('dotenv').config();
 
+const isSslEnabled = () => {
+  if (process.env.DB_SSL === 'true') return true;
+  if (process.env.DB_SSL === 'false') return false;
+  const dbUrl = process.env.DATABASE_URL || '';
+  if (dbUrl.includes('supabase.co') || dbUrl.includes('supabase.com') || dbUrl.includes('pooler.supabase.com')) return true;
+  if (dbUrl.includes('render.com')) return true;
+  if (dbUrl.includes('sslmode=')) return true;
+  if (process.env.NODE_ENV === 'production' && dbUrl) return true;
+  return false;
+};
+
+// Si SSL está habilitado para PostgreSQL cloud (Supabase, Render, etc.),
+// deshabilitar la verificación estricta de cadenas de certificados autofirmados / intermedias en Node.js
+if (isSslEnabled()) {
+  process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
+}
+
+const cleanDatabaseUrl = (rawUrl) => {
+  if (!rawUrl) return rawUrl;
+  return rawUrl
+    .replace(/[?&]sslmode=[^&]+/g, '')
+    .replace(/[?&]ssl=[^&]+/g, '')
+    .replace(/\?$/, '');
+};
+
+const resolvedDbUrl = cleanDatabaseUrl(process.env.DATABASE_URL);
+
 const sslConfig = {
   ssl: {
     require: true,
@@ -7,21 +34,10 @@ const sslConfig = {
   }
 };
 
-const isSslEnabled = () => {
-  if (process.env.DB_SSL === 'true') return true;
-  if (process.env.DB_SSL === 'false') return false;
-  const dbUrl = process.env.DATABASE_URL || '';
-  if (dbUrl.includes('supabase.co') || dbUrl.includes('supabase.com') || dbUrl.includes('pooler.supabase.com')) return true;
-  if (dbUrl.includes('render.com')) return true;
-  if (dbUrl.includes('sslmode=require')) return true;
-  if (process.env.NODE_ENV === 'production' && dbUrl) return true;
-  return false;
-};
-
 module.exports = {
   development: {
-    use_env_variable: process.env.DATABASE_URL ? "DATABASE_URL" : undefined,
-    url: process.env.DATABASE_URL,
+    use_env_variable: resolvedDbUrl ? undefined : undefined,
+    url: resolvedDbUrl,
     username: process.env.DB_USER,
     password: process.env.DB_PASSWORD,
     database: process.env.DB_NAME,
@@ -39,8 +55,8 @@ module.exports = {
     dialect: "postgres"
   },
   production: {
-    use_env_variable: process.env.DATABASE_URL ? "DATABASE_URL" : undefined,
-    url: process.env.DATABASE_URL,
+    use_env_variable: resolvedDbUrl ? undefined : undefined,
+    url: resolvedDbUrl,
     username: process.env.DB_USER,
     password: process.env.DB_PASSWORD,
     database: process.env.DB_NAME,

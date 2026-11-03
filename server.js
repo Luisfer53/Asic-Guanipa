@@ -1,8 +1,11 @@
-﻿const express = require('express');
+const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 require('dotenv').config();
+if (process.env.NODE_ENV === 'production' || process.env.DB_SSL === 'true' || (process.env.DATABASE_URL && (process.env.DATABASE_URL.includes('supabase') || process.env.DATABASE_URL.includes('sslmode')))) {
+    process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
+}
 
 const authRoutes = require('./src/routes/authRoutes');
 const patientRoutes = require('./src/routes/patientRoutes');
