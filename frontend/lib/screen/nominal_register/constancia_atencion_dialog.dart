@@ -522,7 +522,7 @@ class _ConstanciaAtencionDialogState extends State<ConstanciaAtencionDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final isMobile = MediaQuery.of(context).size.width < 600;
+    final isMobile = MediaQuery.of(context).size.width < 650;
     final p = widget.paciente;
     final profesional = _obtenerProfesional();
     final codigoDoc = _generarCodigoConstancia();
@@ -530,13 +530,14 @@ class _ConstanciaAtencionDialogState extends State<ConstanciaAtencionDialog> {
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       insetPadding: EdgeInsets.symmetric(
-        horizontal: isMobile ? 12 : 36,
-        vertical: isMobile ? 16 : 28,
+        horizontal: isMobile ? 8 : 24,
+        vertical: isMobile ? 10 : 24,
       ),
       child: Container(
-        width: 820,
+        width: isMobile ? double.infinity : 820,
         constraints: BoxConstraints(
-          maxHeight: MediaQuery.of(context).size.height * 0.92,
+          maxHeight: MediaQuery.of(context).size.height * (isMobile ? 0.95 : 0.92),
+          maxWidth: 820,
         ),
         decoration: BoxDecoration(
           color: Colors.white,
@@ -578,10 +579,10 @@ class _ConstanciaAtencionDialogState extends State<ConstanciaAtencionDialog> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text(
+                        Text(
                           'Constancia Oficial de Atención con QR',
                           style: TextStyle(
-                            fontSize: 15,
+                            fontSize: isMobile ? 13.5 : 15,
                             fontWeight: FontWeight.w800,
                             color: Colors.white,
                             letterSpacing: 0.3,
@@ -732,6 +733,7 @@ class _ConstanciaAtencionDialogState extends State<ConstanciaAtencionDialog> {
                                                _selectedAtencion!['nombre_biologico'] ??
                                                'Inmunización Preventiva')
                                             : 'Atención e Inmunización Sanitaria',
+                                        isMobile,
                                       ),
                                       const Divider(height: 12),
                                       _itemFila(
@@ -739,14 +741,16 @@ class _ConstanciaAtencionDialogState extends State<ConstanciaAtencionDialog> {
                                         _selectedAtencion?['dosis_esquema'] ??
                                             _selectedAtencion?['dosis'] ??
                                             'Dosis correspondiente',
+                                        isMobile,
                                       ),
                                       const Divider(height: 12),
                                       _itemFila(
                                         'Fecha de Atención',
                                         DateFormat('dd/MM/yyyy · hh:mm a').format(DateTime.now()),
+                                        isMobile,
                                       ),
                                       const Divider(height: 12),
-                                      _itemFila('Personal Asistencial', profesional),
+                                      _itemFila('Personal Asistencial', profesional, isMobile),
                                     ],
                                   ),
                                 ),
@@ -790,7 +794,7 @@ class _ConstanciaAtencionDialogState extends State<ConstanciaAtencionDialog> {
                                       QrImageView(
                                         data: _generarUrlVerificacion(codigoDoc),
                                         version: QrVersions.auto,
-                                        size: 75,
+                                        size: isMobile ? 65 : 75,
                                         eyeStyle: const QrEyeStyle(
                                           eyeShape: QrEyeShape.square,
                                           color: Color(0xFF0F172A),
@@ -901,7 +905,27 @@ class _ConstanciaAtencionDialogState extends State<ConstanciaAtencionDialog> {
     );
   }
 
-  Widget _itemFila(String label, String valor) {
+  Widget _itemFila(String label, String valor, [bool isMobile = false]) {
+    if (isMobile) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 2),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              label,
+              style: const TextStyle(fontSize: 10.5, color: Color(0xFF64748B), fontWeight: FontWeight.w600),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              valor,
+              style: const TextStyle(fontSize: 12, color: Color(0xFF0F172A), fontWeight: FontWeight.bold),
+            ),
+          ],
+        ),
+      );
+    }
+
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [

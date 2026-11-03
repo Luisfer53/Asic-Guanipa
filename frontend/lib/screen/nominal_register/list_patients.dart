@@ -1,4 +1,4 @@
-﻿import 'dart:async';
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart' show kIsWeb;
@@ -355,7 +355,7 @@ class _ListPatientsState extends State<ListPatients> {
   Widget _buildHeader() {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final isMobile = constraints.maxWidth < 600;
+        final isMobile = constraints.maxWidth < 750;
         if (isMobile) {
           return Container(
             padding: const EdgeInsets.fromLTRB(12, 12, 12, 10),
@@ -610,7 +610,7 @@ class _ListPatientsState extends State<ListPatients> {
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        final isMobile = constraints.maxWidth < 600;
+        final isMobile = constraints.maxWidth < 750;
 
         final buscador = SizedBox(
           height: 38,

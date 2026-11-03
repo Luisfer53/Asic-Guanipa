@@ -602,58 +602,99 @@ class _JornadaDiariaScreenState extends State<JornadaDiariaScreen> {
   Widget _buildGuardiaTopBanner(GuardiaProvider prov) {
     final g = prov.guardia;
     final activa = prov.hasGuardiaActiva;
+    final isMobile = MediaQuery.of(context).size.width < 700;
 
     if (!activa) {
       return Container(
         width: double.infinity,
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        padding: EdgeInsets.symmetric(horizontal: isMobile ? 12 : 16, vertical: 8),
         decoration: BoxDecoration(
           color: Colors.amber.shade100,
           border: Border(bottom: BorderSide(color: Colors.amber.shade400)),
         ),
-        child: Row(
-          children: [
-            // Botón volver al inicio
-            OutlinedButton.icon(
-              style: OutlinedButton.styleFrom(
-                foregroundColor: Colors.amber.shade900,
-                side: BorderSide(color: Colors.amber.shade700),
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        child: isMobile
+            ? Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(
+                    children: [
+                      Icon(Icons.warning_amber_rounded, color: Colors.amber.shade900, size: 18),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'No hay guardia activa.',
+                          style: TextStyle(color: Colors.amber.shade900, fontWeight: FontWeight.bold, fontSize: 12),
+                        ),
+                      ),
+                      OutlinedButton.icon(
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: Colors.amber.shade900,
+                          side: BorderSide(color: Colors.amber.shade700),
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                        ),
+                        icon: const Icon(Icons.arrow_back_rounded, size: 13),
+                        label: const Text('Inicio', style: TextStyle(fontSize: 11)),
+                        onPressed: () => context.canPop() ? context.pop() : context.go('/'),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.amber.shade900,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    ),
+                    icon: const Icon(Icons.play_arrow_rounded, size: 18),
+                    label: const Text('Abrir Guardia Ahora', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                    onPressed: () => AperturaGuardiaDialog.show(context),
+                  ),
+                ],
+              )
+            : Row(
+                children: [
+                  OutlinedButton.icon(
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: Colors.amber.shade900,
+                      side: BorderSide(color: Colors.amber.shade700),
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    ),
+                    icon: const Icon(Icons.arrow_back_rounded, size: 15),
+                    label: const Text('Inicio', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                    onPressed: () => context.canPop() ? context.pop() : context.go('/'),
+                  ),
+                  const SizedBox(width: 10),
+                  Icon(Icons.warning_amber_rounded, color: Colors.amber.shade900, size: 20),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'No hay una guardia activa. Inicie la guardia para registrar atenciones.',
+                      style: TextStyle(color: Colors.amber.shade900, fontWeight: FontWeight.bold, fontSize: 12),
+                    ),
+                  ),
+                  ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.amber.shade900,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    ),
+                    icon: const Icon(Icons.play_arrow_rounded, size: 18),
+                    label: const Text('Abrir Guardia', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                    onPressed: () => AperturaGuardiaDialog.show(context),
+                  ),
+                ],
               ),
-              icon: const Icon(Icons.arrow_back_rounded, size: 15),
-              label: const Text('Inicio', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-              onPressed: () => context.canPop() ? context.pop() : context.go('/'),
-            ),
-            const SizedBox(width: 10),
-            Icon(Icons.warning_amber_rounded, color: Colors.amber.shade900, size: 20),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                'No hay una guardia activa. Inicie la guardia para registrar atenciones.',
-                style: TextStyle(color: Colors.amber.shade900, fontWeight: FontWeight.bold, fontSize: 12),
-              ),
-            ),
-            ElevatedButton.icon(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.amber.shade900,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-              ),
-              icon: const Icon(Icons.play_arrow_rounded, size: 18),
-              label: const Text('Abrir Guardia', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-              onPressed: () => AperturaGuardiaDialog.show(context),
-            ),
-          ],
-        ),
       );
     }
 
     final isExtramural = g!.isExtramural;
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      padding: EdgeInsets.symmetric(horizontal: isMobile ? 12 : 16, vertical: 8),
       decoration: BoxDecoration(
         color: Colors.white,
         boxShadow: [
@@ -665,137 +706,241 @@ class _JornadaDiariaScreenState extends State<JornadaDiariaScreen> {
         ],
         border: const Border(bottom: BorderSide(color: Color(0xFFE2E8F0))),
       ),
-      child: Row(
-        children: [
-          // Botón volver al inicio
-          OutlinedButton.icon(
-            style: OutlinedButton.styleFrom(
-              foregroundColor: const Color(0xFF1565C0),
-              side: const BorderSide(color: Color(0xFFBFDBFE)),
-              backgroundColor: const Color(0xFFEFF6FF),
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-            ),
-            icon: const Icon(Icons.arrow_back_rounded, size: 15),
-            label: const Text('Inicio', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-            onPressed: () => context.canPop() ? context.pop() : context.go('/'),
-          ),
-          const SizedBox(width: 10),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-            decoration: BoxDecoration(
-              color: isExtramural ? Colors.deepPurple.shade50 : Colors.blue.shade50,
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(
-                color: isExtramural ? Colors.deepPurple.shade200 : Colors.blue.shade200,
-              ),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
+      child: isMobile
+          ? Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Icon(
-                  isExtramural ? Icons.terrain_rounded : Icons.local_hospital_rounded,
-                  color: isExtramural ? Colors.deepPurple.shade700 : _primary,
-                  size: 16,
+                Row(
+                  children: [
+                    OutlinedButton.icon(
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: const Color(0xFF1565C0),
+                        side: const BorderSide(color: Color(0xFFBFDBFE)),
+                        backgroundColor: const Color(0xFFEFF6FF),
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                      ),
+                      icon: const Icon(Icons.arrow_back_rounded, size: 13),
+                      label: const Text('Inicio', style: TextStyle(fontSize: 11)),
+                      onPressed: () => context.canPop() ? context.pop() : context.go('/'),
+                    ),
+                    const SizedBox(width: 6),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: isExtramural ? Colors.deepPurple.shade50 : Colors.blue.shade50,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: isExtramural ? Colors.deepPurple.shade200 : Colors.blue.shade200),
+                      ),
+                      child: Text(
+                        isExtramural ? 'EXTRAMURAL' : 'INTRAMURAL',
+                        style: TextStyle(
+                          color: isExtramural ? Colors.deepPurple.shade800 : _primary,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 9.5,
+                        ),
+                      ),
+                    ),
+                    const Spacer(),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: _green.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: _green.withOpacity(0.3)),
+                      ),
+                      child: Text(
+                        '${g.pacientesAtendidos} Atendidos',
+                        style: const TextStyle(color: _green, fontWeight: FontWeight.bold, fontSize: 11),
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(width: 6),
-                Text(
-                  isExtramural ? 'EXTRAMURAL' : 'INTRAMURAL',
-                  style: TextStyle(
-                    color: isExtramural ? Colors.deepPurple.shade800 : _primary,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 11,
-                    letterSpacing: 0.5,
+                const SizedBox(height: 6),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 4,
+                  alignment: WrapAlignment.spaceBetween,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    Text(
+                      isExtramural ? 'Sector: ${g.sectorComunidad ?? "Comunidad"}' : g.centroSalud,
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Color(0xFF1E293B)),
+                    ),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        OutlinedButton(
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: const Color(0xFF1565C0),
+                            side: const BorderSide(color: Color(0xFFBFDBFE)),
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                            minimumSize: const Size(0, 28),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                          ),
+                          onPressed: () => GestionarJornadasDialog.show(
+                            context,
+                            jornadaActivaActual: _jornadaActiva,
+                            onSeleccionarJornadaActiva: _onSeleccionarJornada,
+                          ),
+                          child: const Text('Jornadas', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                        ),
+                        const SizedBox(width: 6),
+                        ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF2E7D32),
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                            minimumSize: const Size(0, 28),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                          ),
+                          onPressed: () async {
+                            final ok = await CrearJornadaDialog.show(context);
+                            if (ok == true) {
+                              _loadInventario();
+                              GestionarJornadasDialog.show(
+                                context,
+                                jornadaActivaActual: _jornadaActiva,
+                                onSeleccionarJornadaActiva: _onSeleccionarJornada,
+                              );
+                            }
+                          },
+                          child: const Text('+ Nueva', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ],
+            )
+          : Row(
+              children: [
+                OutlinedButton.icon(
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: const Color(0xFF1565C0),
+                    side: const BorderSide(color: Color(0xFFBFDBFE)),
+                    backgroundColor: const Color(0xFFEFF6FF),
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  ),
+                  icon: const Icon(Icons.arrow_back_rounded, size: 15),
+                  label: const Text('Inicio', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                  onPressed: () => context.canPop() ? context.pop() : context.go('/'),
+                ),
+                const SizedBox(width: 10),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  decoration: BoxDecoration(
+                    color: isExtramural ? Colors.deepPurple.shade50 : Colors.blue.shade50,
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(
+                      color: isExtramural ? Colors.deepPurple.shade200 : Colors.blue.shade200,
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        isExtramural ? Icons.terrain_rounded : Icons.local_hospital_rounded,
+                        color: isExtramural ? Colors.deepPurple.shade700 : _primary,
+                        size: 16,
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        isExtramural ? 'EXTRAMURAL' : 'INTRAMURAL',
+                        style: TextStyle(
+                          color: isExtramural ? Colors.deepPurple.shade800 : _primary,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 11,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        isExtramural
+                            ? 'Sector: ${g.sectorComunidad ?? "Comunidad"}'
+                            : g.centroSalud,
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF1E293B)),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      Text(
+                        'Turno: ${g.turno}',
+                        style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+                      ),
+                    ],
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: _green.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: _green.withOpacity(0.3)),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.vaccines_rounded, color: _green, size: 16),
+                      const SizedBox(width: 6),
+                      Text(
+                        '${g.pacientesAtendidos} Atendidos',
+                        style: const TextStyle(color: _green, fontWeight: FontWeight.bold, fontSize: 12),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 10),
+                OutlinedButton.icon(
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: const Color(0xFF1565C0),
+                    side: const BorderSide(color: Color(0xFFBFDBFE)),
+                    backgroundColor: const Color(0xFFEFF6FF),
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  ),
+                  icon: const Icon(Icons.event_note_rounded, size: 15),
+                  label: Text(
+                    _jornadaActiva != null ? 'Jornada Activa' : 'Jornadas',
+                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                  ),
+                  onPressed: () => GestionarJornadasDialog.show(
+                    context,
+                    jornadaActivaActual: _jornadaActiva,
+                    onSeleccionarJornadaActiva: _onSeleccionarJornada,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF2E7D32),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  ),
+                  icon: const Icon(Icons.add_rounded, size: 16),
+                  label: const Text('Nueva Jornada', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                  onPressed: () async {
+                    final ok = await CrearJornadaDialog.show(context);
+                    if (ok == true) {
+                      _loadInventario();
+                      GestionarJornadasDialog.show(
+                        context,
+                        jornadaActivaActual: _jornadaActiva,
+                        onSeleccionarJornadaActiva: _onSeleccionarJornada,
+                      );
+                    }
+                  },
+                ),
               ],
             ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  isExtramural
-                      ? 'Sector: ${g.sectorComunidad ?? "Comunidad"}'
-                      : g.centroSalud,
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF1E293B)),
-                  overflow: TextOverflow.ellipsis,
-                ),
-                Text(
-                  'Turno: ${g.turno}',
-                  style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
-                ),
-              ],
-            ),
-          ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            decoration: BoxDecoration(
-              color: _green.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: _green.withOpacity(0.3)),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(Icons.vaccines_rounded, color: _green, size: 16),
-                const SizedBox(width: 6),
-                Text(
-                  '${g.pacientesAtendidos} Atendidos',
-                  style: const TextStyle(color: _green, fontWeight: FontWeight.bold, fontSize: 12),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 10),
-          // Botón Gestionar Jornadas
-          OutlinedButton.icon(
-            style: OutlinedButton.styleFrom(
-              foregroundColor: const Color(0xFF1565C0),
-              side: const BorderSide(color: Color(0xFFBFDBFE)),
-              backgroundColor: const Color(0xFFEFF6FF),
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-            ),
-            icon: const Icon(Icons.event_note_rounded, size: 15),
-            label: Text(
-              _jornadaActiva != null ? 'Jornada Activa' : 'Jornadas',
-              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-            ),
-            onPressed: () => GestionarJornadasDialog.show(
-              context,
-              jornadaActivaActual: _jornadaActiva,
-              onSeleccionarJornadaActiva: _onSeleccionarJornada,
-            ),
-          ),
-          const SizedBox(width: 8),
-          // Botón Crear Nueva Jornada
-          ElevatedButton.icon(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF2E7D32),
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-            ),
-            icon: const Icon(Icons.add_rounded, size: 16),
-            label: const Text('Nueva Jornada', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-            onPressed: () async {
-              final ok = await CrearJornadaDialog.show(context);
-              if (ok == true) {
-                _loadInventario();
-                GestionarJornadasDialog.show(
-                  context,
-                  jornadaActivaActual: _jornadaActiva,
-                  onSeleccionarJornadaActiva: _onSeleccionarJornada,
-                );
-              }
-            },
-          ),
-        ],
-      ),
     );
   }
 
@@ -1364,6 +1509,7 @@ class _JornadaDiariaScreenState extends State<JornadaDiariaScreen> {
     final p = _selectedPaciente!;
     final esPed = _isPediatrico(p);
     final edad = _calcularEdadTexto(p.fechaNacimiento);
+    final isMobile = MediaQuery.of(context).size.width < 700;
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
@@ -1480,8 +1626,27 @@ class _JornadaDiariaScreenState extends State<JornadaDiariaScreen> {
                     children: [
                       OutlinedButton.icon(
                         style: OutlinedButton.styleFrom(
-                          foregroundColor: const Color(0xFF1E3A8A),
-                          side: const BorderSide(color: Color(0xFFBFDBFE)),
+                          foregroundColor: const Color(0xFF0D9488),
+                          side: const BorderSide(color: Color(0xFF99F6E4)),
+                          backgroundColor: const Color(0xFFF0FDFA),
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        ),
+                        onPressed: () {
+                          CarnetVacunacionDialog.show(
+                            context,
+                            paciente: p,
+                            vacunadorNombre: _getVacunadorActual(),
+                          );
+                        },
+                        icon: const Icon(Icons.qr_code_2_rounded, size: 15),
+                        label: const Text('Ver Carnet de Vacunación (QR)', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                      ),
+                      OutlinedButton.icon(
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: const Color(0xFF0284C7),
+                          side: const BorderSide(color: Color(0xFFBAE6FD)),
+                          backgroundColor: const Color(0xFFF0F9FF),
                           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                         ),
@@ -1494,20 +1659,7 @@ class _JornadaDiariaScreenState extends State<JornadaDiariaScreen> {
                           );
                         },
                         icon: const Icon(Icons.verified_rounded, size: 15),
-                        label: const Text('Emitir Constancia Médica (QR)', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
-                      ),
-                      OutlinedButton.icon(
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: const Color(0xFF0284C7),
-                          side: const BorderSide(color: Color(0xFFBAE6FD)),
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                        ),
-                        onPressed: () {
-                          ConstanciaAtencionDialog.show(context, paciente: p);
-                        },
-                        icon: const Icon(Icons.verified_rounded, size: 15),
-                        label: const Text('Constancia Oficial (QR)', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                        label: const Text('Constancia Oficial de Atención (QR)', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
                       ),
                     ],
                   ),
@@ -1633,35 +1785,61 @@ class _JornadaDiariaScreenState extends State<JornadaDiariaScreen> {
                     const SizedBox(height: 14),
 
                     // Vía de Administración y Sitio Anatómico
-                    Row(
-                      children: [
-                        Expanded(
-                          child: DropdownButtonFormField<String>(
-                            value: _viaAdministracion,
-                            decoration: InputDecoration(
-                              labelText: 'Vía de Administración',
-                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                            ),
-                            items: _viasOpciones.map((v) => DropdownMenuItem(value: v, child: Text(v, style: const TextStyle(fontSize: 12)))).toList(),
-                            onChanged: (v) => setState(() => _viaAdministracion = v ?? 'Intramuscular'),
+                    isMobile
+                        ? Column(
+                            children: [
+                              DropdownButtonFormField<String>(
+                                value: _viaAdministracion,
+                                decoration: InputDecoration(
+                                  labelText: 'Vía de Administración',
+                                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                                ),
+                                items: _viasOpciones.map((v) => DropdownMenuItem(value: v, child: Text(v, style: const TextStyle(fontSize: 12)))).toList(),
+                                onChanged: (v) => setState(() => _viaAdministracion = v ?? 'Intramuscular'),
+                              ),
+                              const SizedBox(height: 10),
+                              DropdownButtonFormField<String>(
+                                value: _sitioAdministracion,
+                                decoration: InputDecoration(
+                                  labelText: 'Sitio Anatómico',
+                                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                                ),
+                                items: _sitiosOpciones.map((s) => DropdownMenuItem(value: s, child: Text(s, style: const TextStyle(fontSize: 12)))).toList(),
+                                onChanged: (s) => setState(() => _sitioAdministracion = s ?? 'Brazo izquierdo'),
+                              ),
+                            ],
+                          )
+                        : Row(
+                            children: [
+                              Expanded(
+                                child: DropdownButtonFormField<String>(
+                                  value: _viaAdministracion,
+                                  decoration: InputDecoration(
+                                    labelText: 'Vía de Administración',
+                                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                                  ),
+                                  items: _viasOpciones.map((v) => DropdownMenuItem(value: v, child: Text(v, style: const TextStyle(fontSize: 12)))).toList(),
+                                  onChanged: (v) => setState(() => _viaAdministracion = v ?? 'Intramuscular'),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: DropdownButtonFormField<String>(
+                                  value: _sitioAdministracion,
+                                  decoration: InputDecoration(
+                                    labelText: 'Sitio Anatómico',
+                                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                                  ),
+                                  items: _sitiosOpciones.map((s) => DropdownMenuItem(value: s, child: Text(s, style: const TextStyle(fontSize: 12)))).toList(),
+                                  onChanged: (s) => setState(() => _sitioAdministracion = s ?? 'Brazo izquierdo'),
+                                ),
+                              ),
+                            ],
                           ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: DropdownButtonFormField<String>(
-                            value: _sitioAdministracion,
-                            decoration: InputDecoration(
-                              labelText: 'Sitio Anatómico',
-                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                            ),
-                            items: _sitiosOpciones.map((s) => DropdownMenuItem(value: s, child: Text(s, style: const TextStyle(fontSize: 12)))).toList(),
-                            onChanged: (s) => setState(() => _sitioAdministracion = s ?? 'Brazo izquierdo'),
-                          ),
-                        ),
-                      ],
-                    ),
                   ],
                 ),
               ),
@@ -1691,57 +1869,105 @@ class _JornadaDiariaScreenState extends State<JornadaDiariaScreen> {
                       ],
                     ),
                     const Divider(height: 20),
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Expanded(
-                          flex: 3,
-                          child: TextFormField(
-                            controller: _tempCtrl,
-                            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                            inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'^d*.?d?'))],
-                            decoration: InputDecoration(
-                              labelText: 'Temperatura (°C)',
-                              suffixText: '°C',
-                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                            ),
-                          ),
-                        ),
-                        if (esPed) ...[
-                          const SizedBox(width: 12),
-                          Expanded(
-                            flex: 3,
-                            child: TextFormField(
-                              controller: _pesoCtrl,
-                              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                              inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'^d*.?d?'))],
-                              decoration: InputDecoration(
-                                labelText: 'Peso (kg)',
-                                suffixText: 'kg',
-                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    isMobile && esPed
+                        ? Column(
+                            children: [
+                              TextFormField(
+                                controller: _tempCtrl,
+                                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'^d*.?d?'))],
+                                decoration: InputDecoration(
+                                  labelText: 'Temperatura (°C)',
+                                  suffixText: '°C',
+                                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                                ),
                               ),
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            flex: 3,
-                            child: TextFormField(
-                              controller: _tallaCtrl,
-                              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                              inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'^d*.?d?'))],
-                              decoration: InputDecoration(
-                                labelText: 'Talla (cm)',
-                                suffixText: 'cm',
-                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                              const SizedBox(height: 10),
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: TextFormField(
+                                      controller: _pesoCtrl,
+                                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                      inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'^d*.?d?'))],
+                                      decoration: InputDecoration(
+                                        labelText: 'Peso (kg)',
+                                        suffixText: 'kg',
+                                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 10),
+                                  Expanded(
+                                    child: TextFormField(
+                                      controller: _tallaCtrl,
+                                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                      inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'^d*.?d?'))],
+                                      decoration: InputDecoration(
+                                        labelText: 'Talla (cm)',
+                                        suffixText: 'cm',
+                                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                                      ),
+                                    ),
+                                  ),
+                                ],
                               ),
-                            ),
+                            ],
+                          )
+                        : Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Expanded(
+                                flex: 3,
+                                child: TextFormField(
+                                  controller: _tempCtrl,
+                                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                  inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'^d*.?d?'))],
+                                  decoration: InputDecoration(
+                                    labelText: 'Temperatura (°C)',
+                                    suffixText: '°C',
+                                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                                  ),
+                                ),
+                              ),
+                              if (esPed) ...[
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  flex: 3,
+                                  child: TextFormField(
+                                    controller: _pesoCtrl,
+                                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                    inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'^d*.?d?'))],
+                                    decoration: InputDecoration(
+                                      labelText: 'Peso (kg)',
+                                      suffixText: 'kg',
+                                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  flex: 3,
+                                  child: TextFormField(
+                                    controller: _tallaCtrl,
+                                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                    inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'^d*.?d?'))],
+                                    decoration: InputDecoration(
+                                      labelText: 'Talla (cm)',
+                                      suffixText: 'cm',
+                                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ],
                           ),
-                        ],
-                      ],
-                    ),
                     if (esPed)
                       Padding(
                         padding: const EdgeInsets.only(top: 8),

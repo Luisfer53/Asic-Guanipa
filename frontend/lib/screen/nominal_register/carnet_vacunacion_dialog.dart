@@ -884,14 +884,23 @@ class _CarnetVacunacionDialogState extends State<CarnetVacunacionDialog> {
     final esMenor = widget.paciente.esMenor;
     final direccion = widget.paciente.direccionCompleta ?? 'San José de Guanipa';
 
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isMobile = screenWidth < 650;
+
     return Dialog(
       backgroundColor: Colors.transparent,
       elevation: 0,
-      insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+      insetPadding: EdgeInsets.symmetric(
+        horizontal: isMobile ? 8 : 16,
+        vertical: isMobile ? 10 : 24,
+      ),
       child: Center(
         child: Container(
-          width: 580,
-          constraints: const BoxConstraints(maxHeight: 800),
+          width: isMobile ? double.infinity : 600,
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.of(context).size.height * (isMobile ? 0.95 : 0.88),
+            maxWidth: 600,
+          ),
           decoration: BoxDecoration(
             color: const Color(0xFFF8FAFC),
             borderRadius: BorderRadius.circular(16),
@@ -902,18 +911,19 @@ class _CarnetVacunacionDialogState extends State<CarnetVacunacionDialog> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              _buildModalHeader(),
-              _buildSegmentedControl(),
+              _buildModalHeader(isMobile),
+              _buildSegmentedControl(isMobile),
               Flexible(
                 child: _loading
                     ? const Padding(padding: EdgeInsets.all(40), child: Center(child: CircularProgressIndicator(color: Color(0xFF1E3A8A))))
                     : _error != null
                         ? _buildErrorView()
                         : SingleChildScrollView(
-                            padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
+                            padding: EdgeInsets.fromLTRB(isMobile ? 10 : 16, 12, isMobile ? 10 : 16, 20),
                             child: _buildCarnetContent(
                               nombreCompleto: nombreCompleto, cedula: cedula, edad: edad,
                               sexo: sexo, esMenor: esMenor, direccion: direccion, persona: persona,
+                              isMobile: isMobile,
                             ),
                           ),
               ),
@@ -925,7 +935,82 @@ class _CarnetVacunacionDialogState extends State<CarnetVacunacionDialog> {
   }
 
   // ─── Header del Modal ──────────────────────────────────────────────────────
-  Widget _buildModalHeader() {
+  Widget _buildModalHeader([bool isMobile = false]) {
+    if (isMobile) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        decoration: const BoxDecoration(
+          color: Color(0xFF0F172A),
+          borderRadius: BorderRadius.only(topLeft: Radius.circular(16), topRight: Radius.circular(16)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(5),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF2E7D32).withValues(alpha: 0.25),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: const Icon(Icons.badge_rounded, color: Color(0xFF4CAF50), size: 16),
+                ),
+                const SizedBox(width: 8),
+                const Expanded(
+                  child: Text(
+                    'Carnet de Vacunación (QR)',
+                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
+                  ),
+                ),
+                IconButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  icon: const Icon(Icons.close, color: Colors.white70, size: 20),
+                  tooltip: 'Cerrar',
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Expanded(
+                  child: ElevatedButton.icon(
+                    onPressed: () => _imprimirCarnet(abrirEnNuevaPestana: false),
+                    icon: const Icon(Icons.print_rounded, size: 14),
+                    label: const Text('Imprimir', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF16A34A),
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 6),
+                      minimumSize: const Size(0, 32),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: () => _imprimirCarnet(abrirEnNuevaPestana: true),
+                    icon: const Icon(Icons.open_in_new_rounded, size: 13),
+                    label: const Text('PDF / Pestaña', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: Colors.white,
+                      side: const BorderSide(color: Color(0xFF475569)),
+                      padding: const EdgeInsets.symmetric(vertical: 6),
+                      minimumSize: const Size(0, 32),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      );
+    }
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
       decoration: const BoxDecoration(
@@ -990,22 +1075,25 @@ class _CarnetVacunacionDialogState extends State<CarnetVacunacionDialog> {
   }
 
   // ─── Selector de Vistas ───────────────────────────────────────────────────
-  Widget _buildSegmentedControl() {
+  Widget _buildSegmentedControl([bool isMobile = false]) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: EdgeInsets.symmetric(horizontal: isMobile ? 8 : 16, vertical: 8),
       decoration: const BoxDecoration(
         color: Colors.white,
         border: Border(bottom: BorderSide(color: Color(0xFFE2E8F0))),
       ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          _segmentButton(0, 'Anverso (Identidad & QR)', Icons.badge_outlined),
-          const SizedBox(width: 6),
-          _segmentButton(1, 'Reverso (Biológicos)', Icons.vaccines_outlined),
-          const SizedBox(width: 6),
-          _segmentButton(2, 'Carnet Completo', Icons.credit_card_rounded),
-        ],
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            _segmentButton(0, isMobile ? 'Anverso (QR)' : 'Anverso (Identidad & QR)', Icons.badge_outlined),
+            const SizedBox(width: 6),
+            _segmentButton(1, isMobile ? 'Reverso (Dosis)' : 'Reverso (Biológicos)', Icons.vaccines_outlined),
+            const SizedBox(width: 6),
+            _segmentButton(2, isMobile ? 'Ambos' : 'Carnet Completo', Icons.credit_card_rounded),
+          ],
+        ),
       ),
     );
   }
@@ -1048,6 +1136,7 @@ class _CarnetVacunacionDialogState extends State<CarnetVacunacionDialog> {
     required bool esMenor,
     required String direccion,
     required Persona? persona,
+    bool isMobile = false,
   }) {
     final vacunasAplicadas = _extraerVacunasAplicadas();
     final hash = _generarHashVerificacion(cedula, vacunasAplicadas.length);
@@ -1059,6 +1148,7 @@ class _CarnetVacunacionDialogState extends State<CarnetVacunacionDialog> {
         nombreCompleto: nombreCompleto, cedula: cedula, edad: edad, sexo: sexo,
         esMenor: esMenor, direccion: direccion, persona: persona,
         urlQR: urlQR, hash: hash, totalDosis: vacunasAplicadas.length,
+        isMobile: isMobile,
       );
     } else if (_vistaSeleccionada == 1) {
       return _buildCaraPosterior(
@@ -1066,6 +1156,7 @@ class _CarnetVacunacionDialogState extends State<CarnetVacunacionDialog> {
         nombreCompleto: nombreCompleto,
         vacunasAplicadas: vacunasAplicadas,
         vacunadorNombre: vacunadorNombre,
+        isMobile: isMobile,
       );
     } else {
       return Column(children: [
@@ -1073,6 +1164,7 @@ class _CarnetVacunacionDialogState extends State<CarnetVacunacionDialog> {
           nombreCompleto: nombreCompleto, cedula: cedula, edad: edad, sexo: sexo,
           esMenor: esMenor, direccion: direccion, persona: persona,
           urlQR: urlQR, hash: hash, totalDosis: vacunasAplicadas.length,
+          isMobile: isMobile,
         ),
         const SizedBox(height: 16),
         _buildSeparadorDoblado(),
@@ -1082,9 +1174,10 @@ class _CarnetVacunacionDialogState extends State<CarnetVacunacionDialog> {
           nombreCompleto: nombreCompleto,
           vacunasAplicadas: vacunasAplicadas,
           vacunadorNombre: vacunadorNombre,
+          isMobile: isMobile,
         ),
         const SizedBox(height: 12),
-        _buildNotaImpresion(),
+        _buildNotaImpresion(isMobile),
       ]);
     }
   }
@@ -1117,7 +1210,45 @@ class _CarnetVacunacionDialogState extends State<CarnetVacunacionDialog> {
     );
   }
 
-  Widget _buildNotaImpresion() {
+  Widget _buildNotaImpresion([bool isMobile = false]) {
+    if (isMobile) {
+      return Container(
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          color: const Color(0xFFF0FDF4),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: const Color(0xFFBBF7D0)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const Row(
+              children: [
+                Icon(Icons.print_rounded, size: 16, color: Color(0xFF16A34A)),
+                SizedBox(width: 8),
+                Expanded(
+                  child: Text('Tamaño Oficial Estándar CR-80 (85.6 × 54.0 mm)',
+                      style: TextStyle(fontSize: 10.5, color: Color(0xFF15803D), fontWeight: FontWeight.bold)),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            ElevatedButton.icon(
+              onPressed: () => _imprimirCarnet(abrirEnNuevaPestana: false),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF16A34A),
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              ),
+              icon: const Icon(Icons.print_rounded, size: 14),
+              label: const Text('Imprimir Ahora', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+            ),
+          ],
+        ),
+      );
+    }
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
@@ -1171,6 +1302,7 @@ class _CarnetVacunacionDialogState extends State<CarnetVacunacionDialog> {
     required String urlQR,
     required String hash,
     required int totalDosis,
+    bool isMobile = false,
   }) {
     final fechaNac = persona?.fechaNacimiento != null
         ? persona!.fechaNacimiento.toString().split('T')[0]
@@ -1264,12 +1396,16 @@ class _CarnetVacunacionDialogState extends State<CarnetVacunacionDialog> {
                   ],
                 ]),
                 const SizedBox(height: 6),
-                Row(children: [
-                  _miniCampo('F. NAC', fechaNac), const SizedBox(width: 8),
-                  _miniCampo('EDAD', edad), const SizedBox(width: 8),
-                  _miniCampo('SEXO', sexo), const SizedBox(width: 8),
-                  _miniCampo('SANGRE', grupoSanguineo),
-                ]),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 3,
+                  children: [
+                    _miniCampo('F. NAC', fechaNac),
+                    _miniCampo('EDAD', edad),
+                    _miniCampo('SEXO', sexo),
+                    _miniCampo('SANGRE', grupoSanguineo),
+                  ],
+                ),
                 const SizedBox(height: 5),
                 Row(children: [
                   const Icon(Icons.location_on_outlined, size: 11, color: Color(0xFF64748B)),
@@ -1378,6 +1514,7 @@ class _CarnetVacunacionDialogState extends State<CarnetVacunacionDialog> {
     required String nombreCompleto,
     required List<Map<String, dynamic>> vacunasAplicadas,
     required String vacunadorNombre,
+    bool isMobile = false,
   }) {
     return Container(
       decoration: BoxDecoration(
@@ -1444,6 +1581,45 @@ class _CarnetVacunacionDialogState extends State<CarnetVacunacionDialog> {
                 Text('Al aplicar un biológico se actualizará automáticamente este carnet.',
                     style: TextStyle(fontSize: 9, color: Color(0xFF94A3B8))),
               ])),
+            )
+          else if (isMobile)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+              child: Column(
+                children: vacunasAplicadas.take(6).map((v) {
+                  final fechaRaw = v['fecha'] != null ? v['fecha'].toString().split('T')[0] : '-';
+                  return Container(
+                    margin: const EdgeInsets.only(bottom: 6),
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF8FAFC),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: const Color(0xFFE2E8F0)),
+                    ),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                v['vacuna'] ?? '-',
+                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5, color: Color(0xFF0F172A)),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                'Lote: ${v['lote'] ?? "S/L"}  •  $fechaRaw',
+                                style: const TextStyle(fontSize: 10, color: Color(0xFF64748B)),
+                              ),
+                            ],
+                          ),
+                        ),
+                        _tdBadgeDosis(v['dosis'] ?? '-'),
+                      ],
+                    ),
+                  );
+                }).toList(),
+              ),
             )
           else
             Table(

@@ -301,7 +301,7 @@ class _QuickPatientDialogState extends State<QuickPatientDialog>
     return LayoutBuilder(
       builder: (context, constraints) {
         final screenWidth = MediaQuery.of(context).size.width;
-        final isMobile = screenWidth < 480;
+        final isMobile = screenWidth < 650;
         return FadeTransition(
           opacity: _fadeAnim,
           child: Dialog(
