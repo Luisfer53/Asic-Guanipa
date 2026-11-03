@@ -1806,10 +1806,65 @@ app.use((req, res) => {
     });
 });
 
+async function ensureDatabaseSchema() {
+    try {
+        console.log('[DB] Verificando columnas críticas de compatibilidad...');
+        await db.sequelize.query(`
+            ALTER TABLE IF EXISTS usuarios ADD COLUMN IF NOT EXISTS activo BOOLEAN NOT NULL DEFAULT true;
+            ALTER TABLE IF EXISTS articulos_medicos ADD COLUMN IF NOT EXISTS tipo VARCHAR(50) DEFAULT 'Insumo';
+            ALTER TABLE IF EXISTS articulos_medicos ADD COLUMN IF NOT EXISTS stock_bloqueado INTEGER DEFAULT 0;
+            ALTER TABLE IF EXISTS lotes_insumos ADD COLUMN IF NOT EXISTS stock_reservado INTEGER DEFAULT 0;
+            ALTER TABLE IF EXISTS atenciones_diarias ADD COLUMN IF NOT EXISTS tipo_atencion VARCHAR(30) DEFAULT 'inmunizacion';
+            ALTER TABLE IF EXISTS atenciones_diarias ADD COLUMN IF NOT EXISTS motivo_consulta TEXT;
+            ALTER TABLE IF EXISTS atenciones_diarias ADD COLUMN IF NOT EXISTS presion_arterial VARCHAR(20);
+            ALTER TABLE IF EXISTS atenciones_diarias ADD COLUMN IF NOT EXISTS frecuencia_cardiaca INTEGER;
+            ALTER TABLE IF EXISTS atenciones_diarias ADD COLUMN IF NOT EXISTS frecuencia_respiratoria INTEGER;
+            ALTER TABLE IF EXISTS atenciones_diarias ADD COLUMN IF NOT EXISTS saturacion_oxigeno INTEGER;
+            ALTER TABLE IF EXISTS atenciones_diarias ADD COLUMN IF NOT EXISTS temperatura DECIMAL(4,1);
+            ALTER TABLE IF EXISTS atenciones_diarias ADD COLUMN IF NOT EXISTS peso DECIMAL(5,2);
+            ALTER TABLE IF EXISTS atenciones_diarias ADD COLUMN IF NOT EXISTS talla DECIMAL(5,2);
+            ALTER TABLE IF EXISTS atenciones_diarias ADD COLUMN IF NOT EXISTS tratamiento_indicado TEXT;
+            ALTER TABLE IF EXISTS atenciones_diarias ADD COLUMN IF NOT EXISTS observaciones TEXT;
+            ALTER TABLE IF EXISTS movimientos_inventario ADD COLUMN IF NOT EXISTS foto_evidencia TEXT;
+            ALTER TABLE IF EXISTS operativos_salud ADD COLUMN IF NOT EXISTS modalidad VARCHAR(50) DEFAULT 'intramural';
+            ALTER TABLE IF EXISTS operativos_salud ADD COLUMN IF NOT EXISTS sector_comunidad VARCHAR(150);
+            ALTER TABLE IF EXISTS operativos_salud ADD COLUMN IF NOT EXISTS responsable VARCHAR(150);
+            ALTER TABLE IF EXISTS operativos_salud ADD COLUMN IF NOT EXISTS personal_participante TEXT;
+            ALTER TABLE IF EXISTS operativos_salud ADD COLUMN IF NOT EXISTS estado VARCHAR(50) DEFAULT 'planificada';
+            ALTER TABLE IF EXISTS registros_vacunacion ADD COLUMN IF NOT EXISTS dosis_numero INTEGER;
+            ALTER TABLE IF EXISTS registros_vacunacion ADD COLUMN IF NOT EXISTS fecha_proxima_cita DATE;
+            ALTER TABLE IF EXISTS registros_vacunacion ADD COLUMN IF NOT EXISTS lote VARCHAR(100);
+            ALTER TABLE IF EXISTS registros_vacunacion ADD COLUMN IF NOT EXISTS centro_salud VARCHAR(150);
+            ALTER TABLE IF EXISTS registros_vacunacion ADD COLUMN IF NOT EXISTS vacunas_aplicadas JSONB;
+        `);
+        console.log('[DB] ✅ Columnas críticas aseguradas correctamente.');
+
+        try {
+            await db.sequelize.query(`
+                INSERT INTO centros_salud (id_centro, nombre_centro, es_puesto_activo)
+                VALUES (1, 'CDI Guanipa', true)
+                ON CONFLICT (id_centro) DO NOTHING;
+            `);
+        } catch (_) {}
+
+        const { exec } = require('child_process');
+        exec('npx sequelize-cli db:migrate', (err, stdout, stderr) => {
+            if (err) {
+                console.warn('[DB] Aviso sequelize-cli db:migrate:', stderr || err.message);
+            } else if (stdout && stdout.trim()) {
+                console.log('[DB] Migraciones ejecutadas:', stdout.trim());
+            }
+        });
+    } catch (err) {
+        console.warn('[DB] Aviso al sincronizar esquema:', err.message);
+    }
+}
+
 const PORT = process.env.PORT || 3000;
 const HOST = '0.0.0.0';
 
-app.listen(PORT, HOST, () => {
+ensureDatabaseSchema().finally(() => {
+    app.listen(PORT, HOST, () => {
     const currentUrl = process.env.SERVER_URL || (process.env.NODE_ENV === 'production' ? prodUrl : `http://localhost:${PORT}/api`);
     const displayUrl = currentUrl.replace(/\/api$/, '');
 
@@ -1823,6 +1878,7 @@ app.listen(PORT, HOST, () => {
     console.log(`   POST   ${currentUrl}/auth/reset-password`);
     console.log(`   GET    ${currentUrl}/auth/profile`);
     console.log('═'.repeat(50) + '\n');
+    });
 });
 
 module.exports = app;
