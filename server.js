@@ -89,7 +89,10 @@ app.use(express.static(path.join(__dirname, 'public')));
 // ─── 🌐 FRONTEND WEB (Flutter Web Build) ─────────────────────────────────────
 const defaultBuildPath = path.join(__dirname, 'frontend', 'build', 'web');
 const fallbackPublicPath = path.join(__dirname, 'public');
-const flutterWebPath = fs.existsSync(path.join(defaultBuildPath, 'index.html'))
+// En Render/producción cloud siempre usar public/ (Flutter web ya compilado)
+// En local usar frontend/build/web/ si existe
+const isCloudEnv = !!(process.env.RENDER || process.env.RAILWAY_ENVIRONMENT || process.env.FLY_APP_NAME);
+const flutterWebPath = (!isCloudEnv && fs.existsSync(path.join(defaultBuildPath, 'index.html')))
     ? defaultBuildPath
     : fallbackPublicPath;
 
@@ -1783,7 +1786,10 @@ app.use((err, req, res, next) => {
 
 app.use((req, res) => {
     if (req.accepts('html')) {
-        return res.sendFile(path.join(flutterWebPath, 'index.html'));
+        const idx = path.join(flutterWebPath, 'index.html');
+        return res.sendFile(idx, (err) => {
+            if (err) res.status(503).send('Servicio iniciando, intente en unos segundos.');
+        });
     }
     res.status(404).json({
         success: false,
