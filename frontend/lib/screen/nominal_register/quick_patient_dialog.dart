@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:asis_guanipa_frontend/utils/upper_case_text_formatter.dart';
 import 'package:asis_guanipa_frontend/services/api_service.dart';
 import 'package:asis_guanipa_frontend/models/paciente.dart';
 import 'package:asis_guanipa_frontend/providers/guardia_provider.dart';
@@ -252,25 +253,25 @@ class _QuickPatientDialogState extends State<QuickPatientDialog>
     }
 
     final res = await _api.crearPacienteRapido(
-      nombre1: nombre1,
-      nombre2: _nombre2Ctrl.text.trim().isNotEmpty ? _nombre2Ctrl.text.trim() : null,
-      apellido1: apellido1,
-      apellido2: _apellido2Ctrl.text.trim().isNotEmpty ? _apellido2Ctrl.text.trim() : null,
+      nombre1: nombre1.toUpperCase(),
+      nombre2: _nombre2Ctrl.text.trim().isNotEmpty ? _nombre2Ctrl.text.trim().toUpperCase() : null,
+      apellido1: apellido1.toUpperCase(),
+      apellido2: _apellido2Ctrl.text.trim().isNotEmpty ? _apellido2Ctrl.text.trim().toUpperCase() : null,
       sexo: _sexo,
-      cedulaIdentidad: _cedulaEfectiva(),
+      cedulaIdentidad: _cedulaEfectiva()?.toUpperCase(),
       fechaNacimiento: fechaStr,
-      sector: _sectorSeleccionado,
-      parroquia: _parroquiaSeleccionada,
-      calle: _calleCtrl.text.trim().isNotEmpty ? _calleCtrl.text.trim() : null,
-      numeroCasa: _numeroCasaCtrl.text.trim().isNotEmpty ? _numeroCasaCtrl.text.trim() : null,
-      puntoReferencia: _puntoRefCtrl.text.trim().isNotEmpty ? _puntoRefCtrl.text.trim() : null,
+      sector: _sectorSeleccionado?.toUpperCase(),
+      parroquia: _parroquiaSeleccionada?.toUpperCase(),
+      calle: _calleCtrl.text.trim().isNotEmpty ? _calleCtrl.text.trim().toUpperCase() : null,
+      numeroCasa: _numeroCasaCtrl.text.trim().isNotEmpty ? _numeroCasaCtrl.text.trim().toUpperCase() : null,
+      puntoReferencia: _puntoRefCtrl.text.trim().isNotEmpty ? _puntoRefCtrl.text.trim().toUpperCase() : null,
       telefono: _telCtrl.text.trim().isNotEmpty ? _telCtrl.text.trim() : null,
       correo: _correoCtrl.text.trim().isNotEmpty ? _correoCtrl.text.trim() : null,
       cedulaRepresentante: _modo == _ModoRegistro.menor
-          ? 'V-${_cedulaRepCtrl.text.trim()}'
+          ? 'V-${_cedulaRepCtrl.text.trim()}'.toUpperCase()
           : null,
       nombreRepresentante: _modo == _ModoRegistro.menor && _nombreRepCtrl.text.trim().isNotEmpty
-          ? _nombreRepCtrl.text.trim()
+          ? _nombreRepCtrl.text.trim().toUpperCase()
           : null,
       ordenHijo: _modo == _ModoRegistro.menor ? _ordenHijo : null,
       traEsquemaPrevio: _traEsquemaPrevio,
@@ -1239,10 +1240,14 @@ class _QuickPatientDialogState extends State<QuickPatientDialog>
     String? prefixText,
     IconData? prefixIcon,
   }) {
+    final effectiveFormatters = formatters ?? (inputType == TextInputType.emailAddress || inputType == TextInputType.number || inputType == TextInputType.phone
+        ? null
+        : [UpperCaseTextFormatter()]);
     return TextFormField(
       controller: ctrl,
       keyboardType: inputType,
-      inputFormatters: formatters,
+      textCapitalization: inputType == TextInputType.emailAddress ? TextCapitalization.none : TextCapitalization.characters,
+      inputFormatters: effectiveFormatters,
       onChanged: (_) => setState(() {}), // para actualizar preview cédula menor
       decoration: InputDecoration(
         hintText: hint,

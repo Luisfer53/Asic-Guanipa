@@ -3,6 +3,7 @@ const { Op } = require('sequelize');
 const { logAction } = require('../utils/auditLogger');
 const { calcularEdad, nombreCompleto, semanaEpidemiologica } = require('../utils/formatters');
 
+const toUpperOrNull = (v) => (v !== undefined && v !== null && typeof v === 'string') ? v.trim().toUpperCase() : (v || null);
 const normalizeDireccionPayload = (direccion) => {
     if (!direccion) return null;
     if (typeof direccion === 'string') {
@@ -162,10 +163,15 @@ const createPatient = async (req, res) => {
 
         // 1. Crear persona del paciente
         const persona = await db.Persona.create({
-            cedula_identidad: cedula_identidad || null,
-            nombre1, nombre2: nombre2 || null,
-            apellido1, apellido2: apellido2 || null,
-            sexo, estado_civil, ocupacion, fecha_nacimiento
+            cedula_identidad: toUpperOrNull(cedula_identidad),
+            nombre1: toUpperOrNull(nombre1),
+            nombre2: toUpperOrNull(nombre2),
+            apellido1: toUpperOrNull(apellido1),
+            apellido2: toUpperOrNull(apellido2),
+            sexo: toUpperOrNull(sexo),
+            estado_civil: toUpperOrNull(estado_civil),
+            ocupacion: toUpperOrNull(ocupacion),
+            fecha_nacimiento
         }, { transaction });
 
         // 2. Teléfono
@@ -208,11 +214,13 @@ const createPatient = async (req, res) => {
             let personaRep = await db.Persona.findOne({ where: { cedula_identidad: cedula_representante }, transaction });
             if (!personaRep) {
                 personaRep = await db.Persona.create({
-                    cedula_identidad: cedula_representante,
-                    nombre1: nombre1_rep || null,
-                    nombre2: nombre2_rep || null,
-                    apellido1: apellido1_rep || null,
-                    apellido2: apellido2_rep || null
+                    cedula_identidad: toUpperOrNull(cedula_representante),
+                    nombre1: toUpperOrNull(nombre1_rep),
+                    nombre2: toUpperOrNull(nombre2_rep),
+                    apellido1: toUpperOrNull(apellido1_rep),
+                    apellido2: toUpperOrNull(apellido2_rep),
+                    sexo: 'F',
+                    fecha_nacimiento: '1990-01-01'
                 }, { transaction });
             }
             if (telefono_representante) {
@@ -558,14 +566,14 @@ const updatePatientData = async (req, res) => {
 
         // Actualizar persona
         const personaUpdates = {};
-        if (nombre1 !== undefined) personaUpdates.nombre1 = nombre1;
-        if (nombre2 !== undefined) personaUpdates.nombre2 = nombre2;
-        if (apellido1 !== undefined) personaUpdates.apellido1 = apellido1;
-        if (apellido2 !== undefined) personaUpdates.apellido2 = apellido2;
-        if (cedula_identidad !== undefined) personaUpdates.cedula_identidad = cedula_identidad;
-        if (sexo !== undefined) personaUpdates.sexo = sexo;
-        if (estado_civil !== undefined) personaUpdates.estado_civil = estado_civil;
-        if (ocupacion !== undefined) personaUpdates.ocupacion = ocupacion;
+        if (nombre1 !== undefined) personaUpdates.nombre1 = toUpperOrNull(nombre1);
+        if (nombre2 !== undefined) personaUpdates.nombre2 = toUpperOrNull(nombre2);
+        if (apellido1 !== undefined) personaUpdates.apellido1 = toUpperOrNull(apellido1);
+        if (apellido2 !== undefined) personaUpdates.apellido2 = toUpperOrNull(apellido2);
+        if (cedula_identidad !== undefined) personaUpdates.cedula_identidad = toUpperOrNull(cedula_identidad);
+        if (sexo !== undefined) personaUpdates.sexo = toUpperOrNull(sexo);
+        if (estado_civil !== undefined) personaUpdates.estado_civil = toUpperOrNull(estado_civil);
+        if (ocupacion !== undefined) personaUpdates.ocupacion = toUpperOrNull(ocupacion);
         if (fecha_nacimiento !== undefined) personaUpdates.fecha_nacimiento = fecha_nacimiento;
 
         if (Object.keys(personaUpdates).length > 0) {
@@ -810,9 +818,9 @@ const createPatientRapido = async (req, res) => {
             if (!personaRep) {
                 const partesRep = (nombre_representante || '').trim().split(/\s+/);
                 personaRep = await db.Persona.create({
-                    cedula_identidad: repClean,
-                    nombre1: partesRep[0] || 'Representante',
-                    apellido1: partesRep[1] || apellido1,
+                    cedula_identidad: toUpperOrNull(repClean),
+                    nombre1: toUpperOrNull(partesRep[0] || 'REPRESENTANTE'),
+                    apellido1: toUpperOrNull(partesRep[1] || apellido1),
                     sexo: 'F',
                     fecha_nacimiento: '1990-01-01'
                 }, { transaction });
@@ -836,11 +844,11 @@ const createPatientRapido = async (req, res) => {
 
         // 2. Crear persona del paciente
         const persona = await db.Persona.create({
-            cedula_identidad: cedula_identidad ? cedula_identidad.trim() : null,
-            nombre1: nombre1.trim(),
-            nombre2: nombre2 ? nombre2.trim() : null,
-            apellido1: apellido1.trim(),
-            apellido2: apellido2 ? apellido2.trim() : null,
+            cedula_identidad: toUpperOrNull(cedula_identidad),
+            nombre1: toUpperOrNull(nombre1),
+            nombre2: toUpperOrNull(nombre2),
+            apellido1: toUpperOrNull(apellido1),
+            apellido2: toUpperOrNull(apellido2),
             sexo: sexo.trim().toUpperCase().startsWith('M') ? 'M' : 'F',
             fecha_nacimiento: fecha_nacimiento || null
         }, { transaction });

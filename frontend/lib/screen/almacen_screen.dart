@@ -966,6 +966,8 @@ class _AlmacenScreenState extends State<AlmacenScreen>
                         Expanded(
                           child: TextFormField(
                             controller: unidadCtrl,
+                            textCapitalization: TextCapitalization.characters,
+                            inputFormatters: [UpperCaseTextFormatter()],
                             decoration: const InputDecoration(labelText: 'Unidad de Medida *', border: OutlineInputBorder()),
                             validator: (val) => val == null || val.trim().isEmpty ? 'Requerido' : null,
                           ),
@@ -984,6 +986,8 @@ class _AlmacenScreenState extends State<AlmacenScreen>
                     TextFormField(
                       controller: descCtrl,
                       maxLines: 2,
+                      textCapitalization: TextCapitalization.characters,
+                      inputFormatters: [UpperCaseTextFormatter()],
                       decoration: const InputDecoration(labelText: 'Descripción / Presentación (Opcional)', border: OutlineInputBorder()),
                     ),
                   ],
@@ -1952,22 +1956,29 @@ class _AlmacenScreenState extends State<AlmacenScreen>
                 children: [
                   TextFormField(
                     controller: nombreCtrl,
+                    textCapitalization: TextCapitalization.characters,
+                    inputFormatters: [UpperCaseTextFormatter()],
                     decoration: const InputDecoration(labelText: 'Nombre del Proveedor / Ente *', border: OutlineInputBorder()),
                     validator: (v) => v == null || v.trim().isEmpty ? 'Requerido' : null,
                   ),
                   const SizedBox(height: 12),
                   TextFormField(
                     controller: rifCtrl,
+                    textCapitalization: TextCapitalization.characters,
+                    inputFormatters: [UpperCaseTextFormatter()],
                     decoration: const InputDecoration(labelText: 'RIF / Código Institucional', border: OutlineInputBorder()),
                   ),
                   const SizedBox(height: 12),
                   TextFormField(
                     controller: tlfCtrl,
+                    keyboardType: TextInputType.phone,
                     decoration: const InputDecoration(labelText: 'Teléfono de Contacto', border: OutlineInputBorder()),
                   ),
                   const SizedBox(height: 12),
                   TextFormField(
                     controller: dirCtrl,
+                    textCapitalization: TextCapitalization.characters,
+                    inputFormatters: [UpperCaseTextFormatter()],
                     decoration: const InputDecoration(labelText: 'Dirección / Ubicación', border: OutlineInputBorder()),
                   ),
                 ],

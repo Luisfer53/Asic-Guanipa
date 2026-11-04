@@ -1,4 +1,5 @@
 const db = require('../models');
+const toUpperOrNull = (v) => (v !== undefined && v !== null && typeof v === "string") ? v.trim().toUpperCase() : (v || null);
 const { LoteInsumo, ArticuloMedico, MovimientoInventario } = require('../models');
 const { Op } = require('sequelize');
 const { logAction } = require('../utils/auditLogger');
@@ -27,11 +28,12 @@ exports.registrarArticulo = async (req, res) => {
             return res.status(400).json({ success: false, message: 'Ya existe un artículo con ese nombre' });
         }
 
+        const nombreUpper = toUpperOrNull(nombre_articulo);
         const nuevoArticulo = await ArticuloMedico.create({
-            nombre_articulo,
+            nombre_articulo: nombreUpper,
             tipo: tipo || 'Insumo',
-            descripcion: descripcion || null,
-            unidad_medida,
+            descripcion: toUpperOrNull(descripcion),
+            unidad_medida: toUpperOrNull(unidad_medida),
             stock_minimo_alerta: stock_minimo_alerta || null
         });
 
@@ -85,10 +87,10 @@ exports.actualizarArticulo = async (req, res) => {
         }
 
         await articulo.update({
-            nombre_articulo: nombre_articulo || articulo.nombre_articulo,
+            nombre_articulo: nombre_articulo ? toUpperOrNull(nombre_articulo) : articulo.nombre_articulo,
             tipo: tipo || articulo.tipo,
-            descripcion: descripcion !== undefined ? descripcion : articulo.descripcion,
-            unidad_medida: unidad_medida || articulo.unidad_medida,
+            descripcion: descripcion !== undefined ? toUpperOrNull(descripcion) : articulo.descripcion,
+            unidad_medida: unidad_medida ? toUpperOrNull(unidad_medida) : articulo.unidad_medida,
             stock_minimo_alerta: stock_minimo_alerta !== undefined ? stock_minimo_alerta : articulo.stock_minimo_alerta
         });
 
@@ -166,7 +168,8 @@ exports.registrarLote = async (req, res) => {
         }
 
         // Buscar si ya existe un lote con ese número
-        let loteExistente = await LoteInsumo.findOne({ where: { numero_lote } });
+        const numLoteUpper = toUpperOrNull(numero_lote);
+        let loteExistente = await LoteInsumo.findOne({ where: { numero_lote: numLoteUpper } });
         if (loteExistente) {
             loteExistente.stock_actual += parseInt(stock_actual || 0);
             loteExistente.fecha_vencimiento = fecha_vencimiento;
@@ -185,7 +188,7 @@ exports.registrarLote = async (req, res) => {
             id_articulo: targetArtId,
             id_proveedor: id_proveedor || null,
             id_centro: centroId,
-            numero_lote,
+            numero_lote: numLoteUpper,
             stock_actual: parseInt(stock_actual || 0),
             fecha_vencimiento
         });
@@ -243,7 +246,7 @@ exports.actualizarLote = async (req, res) => {
             id_articulo: id_articulo ? parseInt(id_articulo) : lote.id_articulo,
             id_proveedor: id_proveedor !== undefined ? (id_proveedor ? parseInt(id_proveedor) : null) : lote.id_proveedor,
             id_centro: id_centro !== undefined ? (id_centro ? parseInt(id_centro) : null) : lote.id_centro,
-            numero_lote: numero_lote || lote.numero_lote,
+            numero_lote: numero_lote ? toUpperOrNull(numero_lote) : lote.numero_lote,
             stock_actual: stock_actual !== undefined ? parseInt(stock_actual) : lote.stock_actual,
             fecha_vencimiento: fecha_vencimiento || lote.fecha_vencimiento
         });
@@ -846,7 +849,12 @@ exports.registrarProveedor = async (req, res) => {
         if (!nombre_proveedor) {
             return res.status(400).json({ success: false, message: 'El nombre del proveedor es obligatorio' });
         }
-        const proveedor = await db.Proveedor.create({ nombre_proveedor, rif, telefono, direccion });
+        const proveedor = await db.Proveedor.create({
+            nombre_proveedor: toUpperOrNull(nombre_proveedor),
+            rif: toUpperOrNull(rif),
+            telefono: telefono ? telefono.trim() : null,
+            direccion: toUpperOrNull(direccion)
+        });
         await logAction(
             req.user ? req.user.username : 'sistema',
             `Registro de proveedor: ${nombre_proveedor}`,
