@@ -562,7 +562,7 @@ exports.generarNotaSalidaPDF = async (req, res) => {
         // Firmas
         doc.fillColor('#000000').fontSize(8);
         doc.text('_______________________________', 40, bottomY + 30);
-        doc.text('ENTREGADO POR: Farmacia / Almacén', 40, bottomY + 42);
+        doc.text('ENTREGADO POR: Inventario / Almacén', 40, bottomY + 42);
 
         doc.text('_______________________________', 240, bottomY + 30);
         doc.text('AUTORIZADO POR: Dirección ASIC', 240, bottomY + 42);

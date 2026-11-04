@@ -215,7 +215,7 @@ class _SeguridadScreenState extends State<SeguridadScreen>
     const rolesDisponibles = [
       'Medico',
       'Inmunizador',
-      'Farmacia',
+      'Inventario',
       'Epidemiologo',
       'Admin',
       'Basico',
@@ -305,7 +305,7 @@ class _SeguridadScreenState extends State<SeguridadScreen>
                       items: const [
                         DropdownMenuItem(value: 'Medico', child: Text('Médico (Consulta & Triaje)')),
                         DropdownMenuItem(value: 'Inmunizador', child: Text('Inmunizador (Vacunación Rápida)')),
-                        DropdownMenuItem(value: 'Farmacia', child: Text('Farmacia / Almacén (Kárdex)')),
+                        DropdownMenuItem(value: 'Inventario', child: Text('Inventario / Almacén (Kárdex)')),
                         DropdownMenuItem(value: 'Epidemiologo', child: Text('Epidemiólogo (Sala Situacional)')),
                         DropdownMenuItem(value: 'Admin', child: Text('Administrador (Acceso Total)')),
                         DropdownMenuItem(value: 'Basico', child: Text('Operador Básico')),
@@ -636,7 +636,7 @@ class _SeguridadScreenState extends State<SeguridadScreen>
                         DropdownMenuItem(value: 'Todos', child: Text('Todos los Roles')),
                         DropdownMenuItem(value: 'Medico', child: Text('Médicos')),
                         DropdownMenuItem(value: 'Inmunizador', child: Text('Inmunizadores')),
-                        DropdownMenuItem(value: 'Farmacia', child: Text('Farmacia')),
+                        DropdownMenuItem(value: 'Inventario', child: Text('Inventario')),
                         DropdownMenuItem(value: 'Epidemiologo', child: Text('Epidemiólogos')),
                         DropdownMenuItem(value: 'Admin', child: Text('Administradores')),
                       ],
@@ -955,7 +955,7 @@ class _SeguridadScreenState extends State<SeguridadScreen>
                 DataColumn(label: Text('Módulo / Funcionalidad', style: TextStyle(fontWeight: FontWeight.bold))),
                 DataColumn(label: Text('Médico', style: TextStyle(fontWeight: FontWeight.bold))),
                 DataColumn(label: Text('Inmunizador', style: TextStyle(fontWeight: FontWeight.bold))),
-                DataColumn(label: Text('Farmacia', style: TextStyle(fontWeight: FontWeight.bold))),
+                DataColumn(label: Text('Inventario', style: TextStyle(fontWeight: FontWeight.bold))),
                 DataColumn(label: Text('Epidemiólogo', style: TextStyle(fontWeight: FontWeight.bold))),
                 DataColumn(label: Text('Admin', style: TextStyle(fontWeight: FontWeight.bold))),
               ],
@@ -1043,7 +1043,7 @@ class _SeguridadScreenState extends State<SeguridadScreen>
     if (r.contains('admin')) return _red;
     if (r.contains('medico')) return _primary;
     if (r.contains('inmunizador')) return _green;
-    if (r.contains('farmacia')) return _amber;
+    if (r.contains('inventario')) return _amber;
     if (r.contains('epidemiologo')) return _purple;
     return Colors.grey;
   }
@@ -1053,7 +1053,7 @@ class _SeguridadScreenState extends State<SeguridadScreen>
     if (r.contains('admin')) return 'Administrador';
     if (r.contains('medico')) return 'Médico';
     if (r.contains('inmunizador')) return 'Inmunizador';
-    if (r.contains('farmacia')) return 'Farmacia';
+    if (r.contains('inventario')) return 'Inventario';
     if (r.contains('epidemiologo')) return 'Epidemiólogo';
     return 'Operador';
   }

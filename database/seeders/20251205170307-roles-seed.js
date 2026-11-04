@@ -4,7 +4,7 @@ module.exports = {
   async up(queryInterface, Sequelize) {
     const rolesList = [
       'Admin', 'Médico', 'Enfermería', 'Estadística',
-      'Básico', 'Inmunizador', 'Farmacia', 'Epidemiólogo'
+      'Básico', 'Inmunizador', 'Inventario', 'Epidemiólogo'
     ];
 
     for (const nombre_rol of rolesList) {

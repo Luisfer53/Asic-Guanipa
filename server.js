@@ -1839,6 +1839,16 @@ async function ensureDatabaseSchema() {
         `);
         console.log('[DB] ✅ Columnas críticas aseguradas correctamente.');
 
+        // Renombrar rol Farmacia → Inventario en la BD
+        try {
+            await db.sequelize.query(`
+                UPDATE roles SET nombre_rol = 'Inventario' WHERE nombre_rol = 'Farmacia';
+                UPDATE usuario_roles SET id_rol = (SELECT id_serial FROM roles WHERE nombre_rol = 'Inventario')
+                WHERE id_rol = (SELECT id_serial FROM roles WHERE nombre_rol = 'Farmacia');
+            `);
+            console.log('[DB] ✅ Rol Farmacia renombrado a Inventario (si existía).');
+        } catch (e) { console.warn('[DB] Renombrado rol (ya hecho o no aplica):', e.message); }
+
         try {
             await db.sequelize.query(`
                 INSERT INTO centros_salud (id_centro, nombre_centro, es_puesto_activo)
