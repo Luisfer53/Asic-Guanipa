@@ -305,7 +305,6 @@ class _AlmacenScreenState extends State<AlmacenScreen>
     final stockCtrl = TextEditingController(text: (lote?['stock_actual'] ?? 100).toString());
 
     int? selectedArtId = lote?['id_articulo'] ?? (lote?['articulo']?['id_articulo']);
-    selectedArtId ??= _articulos.first['id_articulo'];
 
     int? selectedProvId = lote?['id_proveedor'] ?? (lote?['proveedor']?['id_proveedor']);
     int? selectedCentroId = lote?['id_centro'] ?? (lote?['centro']?['id_centro']);
@@ -351,7 +350,11 @@ class _AlmacenScreenState extends State<AlmacenScreen>
                     const Text('Artículo / Biológico *', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
                     const SizedBox(height: 6),
                     DropdownButtonFormField<int>(
-                      decoration: const InputDecoration(border: OutlineInputBorder(), isDense: true),
+                      decoration: const InputDecoration(
+                        border: OutlineInputBorder(),
+                        isDense: true,
+                        hintText: 'Seleccione un artículo / biológico...',
+                      ),
                       initialValue: selectedArtId,
                       items: _articulos.map((a) {
                         final int id = a['id_articulo'] ?? a['id'];
@@ -453,7 +456,11 @@ class _AlmacenScreenState extends State<AlmacenScreen>
                     const Text('Proveedor / Ente de Despacho', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
                     const SizedBox(height: 6),
                     DropdownButtonFormField<int?>(
-                      decoration: const InputDecoration(border: OutlineInputBorder(), isDense: true),
+                      decoration: const InputDecoration(
+                        border: OutlineInputBorder(),
+                        isDense: true,
+                        hintText: 'Seleccione proveedor (opcional)...',
+                      ),
                       initialValue: selectedProvId,
                       items: [
                         const DropdownMenuItem<int?>(value: null, child: Text('No especificado / MPPS Central')),
@@ -547,7 +554,7 @@ class _AlmacenScreenState extends State<AlmacenScreen>
     final justificacionCtrl = TextEditingController(
       text: 'Descarte oficial por caducidad / pérdida de cadena de frío conforme a normativa MPPS.',
     );
-    String metodoDisposicion = 'Incineración';
+    String? metodoDisposicion;
 
     showDialog(
       context: context,
@@ -609,13 +616,19 @@ class _AlmacenScreenState extends State<AlmacenScreen>
                     const SizedBox(height: 6),
                     DropdownButtonFormField<String>(
                       initialValue: metodoDisposicion,
-                      decoration: const InputDecoration(border: OutlineInputBorder(), isDense: true),
+                      hint: const Text('Seleccione método de disposición final...'),
+                      decoration: const InputDecoration(
+                        border: OutlineInputBorder(),
+                        isDense: true,
+                        labelText: 'Método de Disposición Final *',
+                      ),
                       items: const [
                         DropdownMenuItem(value: 'Incineración', child: Text('Incineración Térmica')),
                         DropdownMenuItem(value: 'Inactivación Química', child: Text('Inactivación Química (Autoclave / Hipoclorito)')),
                         DropdownMenuItem(value: 'Envío a Nivel Central', child: Text('Retorno / Envío a Nivel Central Barcelona')),
                       ],
-                      onChanged: (val) => setDState(() => metodoDisposicion = val ?? 'Incineración'),
+                      onChanged: (val) => setDState(() => metodoDisposicion = val),
+                      validator: (val) => val == null ? 'Seleccione un método de disposición' : null,
                     ),
                     const SizedBox(height: 14),
                     const Text('Justificación Técnica / Causal *', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
@@ -643,7 +656,7 @@ class _AlmacenScreenState extends State<AlmacenScreen>
 
                 final res = await _apiService.descartarLotes(
                   ids: [loteId],
-                  metodoDisposicion: metodoDisposicion,
+                  metodoDisposicion: metodoDisposicion ?? 'Incineración',
                   fechaRetiro: DateTime.now().toIso8601String().split('T')[0],
                   justificacion: justificacionCtrl.text.trim(),
                   numeroActaDescarte: actaCtrl.text.trim(),
@@ -926,7 +939,7 @@ class _AlmacenScreenState extends State<AlmacenScreen>
     final unidadCtrl = TextEditingController(text: articulo?['unidad_medida'] ?? 'Dosis');
     final descCtrl = TextEditingController(text: articulo?['descripcion'] ?? '');
     final stockMinCtrl = TextEditingController(text: (articulo?['stock_minimo_alerta'] ?? 15).toString());
-    String selectedTipo = articulo?['tipo'] ?? 'Vacuna';
+    String? selectedTipo = articulo?['tipo'];
 
     final isEdit = articulo != null;
     final int? artId = articulo?['id_articulo'] ?? articulo?['id'];
@@ -948,9 +961,11 @@ class _AlmacenScreenState extends State<AlmacenScreen>
                   children: [
                     DropdownButtonFormField<String>(
                       initialValue: selectedTipo,
+                      hint: const Text('Seleccionar tipo de artículo...'),
                       decoration: const InputDecoration(labelText: 'Tipo de Artículo *', border: OutlineInputBorder()),
                       items: tipos.map((t) => DropdownMenuItem(value: t, child: Text(t))).toList(),
-                      onChanged: (val) => setDState(() => selectedTipo = val ?? 'Vacuna'),
+                      onChanged: (val) => setDState(() => selectedTipo = val),
+                      validator: (val) => val == null ? 'Seleccione un tipo' : null,
                     ),
                     const SizedBox(height: 14),
                     TextFormField(
@@ -1012,7 +1027,7 @@ class _AlmacenScreenState extends State<AlmacenScreen>
                     id: artId,
                     nombreArticulo: nombre,
                     unidadMedida: unidad,
-                    tipo: selectedTipo,
+                    tipo: selectedTipo ?? 'Insumo',
                     descripcion: desc.isEmpty ? null : desc,
                     stockMinimoAlerta: stockMin,
                   );
@@ -1020,7 +1035,7 @@ class _AlmacenScreenState extends State<AlmacenScreen>
                   res = await _apiService.registrarArticulo(
                     nombre,
                     unidad,
-                    tipo: selectedTipo,
+                    tipo: selectedTipo ?? 'Insumo',
                     descripcion: desc.isEmpty ? null : desc,
                     stockMinimoAlerta: stockMin,
                   );
@@ -1777,6 +1792,7 @@ class _AlmacenScreenState extends State<AlmacenScreen>
                             if (tipoMov == 'Entrada') movColor = _green;
                             if (tipoMov == 'Descarte') movColor = _red;
                             if (tipoMov == 'Despacho') movColor = _teal;
+                            if (tipoMov == 'Salida Asistencial' || tipoMov == 'Salida') movColor = const Color(0xFF7C3AED);
 
                             return ListTile(
                               contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -1786,7 +1802,11 @@ class _AlmacenScreenState extends State<AlmacenScreen>
                                 child: Icon(
                                   tipoMov == 'Entrada'
                                       ? Icons.arrow_downward
-                                      : (tipoMov == 'Descarte' ? Icons.delete_forever : Icons.arrow_upward),
+                                      : (tipoMov == 'Descarte'
+                                          ? Icons.delete_forever
+                                          : (tipoMov == 'Salida Asistencial'
+                                              ? Icons.medical_services_rounded
+                                              : Icons.arrow_upward)),
                                 ),
                               ),
                               title: Row(

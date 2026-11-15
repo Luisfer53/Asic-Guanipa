@@ -126,6 +126,7 @@ class _CarnetVacunacionDialogState extends State<CarnetVacunacionDialog> {
             'lote': loteNum, 'via': vac['via_administracion'] ?? via ?? 'Intramuscular',
             'sitio': vac['sitio_administracion'] ?? sitio ?? 'Deltoides',
             'centro': centroNombre, 'modalidad': vac['modalidad'] ?? modalidad,
+            'intervalo_dias': vac['esquema']?['intervalo_dias_previo'],
           });
         }
       }
@@ -213,6 +214,20 @@ class _CarnetVacunacionDialogState extends State<CarnetVacunacionDialog> {
     } catch (_) {}
 
     return 'Personal de Inmunización CDI';
+  }
+
+  /// Calcula la próxima fecha de dosis dado la fecha de aplicación + intervalo en días
+  /// Retorna '—' si no aplica (dosis única o sin intervalo)
+  String _calcularProximaCita(String? fechaAplicacion, int? intervaloDias) {
+    if (intervaloDias == null || intervaloDias <= 0) return '—';
+    DateTime base;
+    if (fechaAplicacion != null && fechaAplicacion.isNotEmpty) {
+      base = DateTime.tryParse(fechaAplicacion.split('T')[0]) ?? DateTime.now();
+    } else {
+      base = DateTime.now();
+    }
+    final proxima = base.add(Duration(days: intervaloDias));
+    return '${proxima.day.toString().padLeft(2, '0')}/${proxima.month.toString().padLeft(2, '0')}/${proxima.year}';
   }
 
   String _escapeHtml(String text) {
@@ -363,6 +378,12 @@ class _CarnetVacunacionDialogState extends State<CarnetVacunacionDialog> {
       final dosis = _escapeHtml((v['dosis'] ?? '-').toString());
       final lote = _escapeHtml((v['lote'] ?? 'S/L').toString());
       final centro = _escapeHtml((v['centro'] ?? 'CDI Pedro Urbina').toString());
+      // Calcular próxima cita basada en fecha de aplicación + intervalo del esquema
+      final intervaloDias = v['intervalo_dias'] as int?;
+      final proximaCita = _calcularProximaCita(v['fecha']?.toString(), intervaloDias);
+      final proximaStyle = proximaCita == '—'
+          ? 'color:#94a3b8; font-style:italic;'
+          : 'color:#7c3aed; font-weight:700;';
       return '''
         <tr>
           <td style="font-weight: 700;">$vacuna</td>
@@ -370,12 +391,13 @@ class _CarnetVacunacionDialogState extends State<CarnetVacunacionDialog> {
           <td>$fechaRaw</td>
           <td style="font-family: monospace; font-weight: 600;">$lote</td>
           <td style="font-style: italic; color: #334155;">$centro</td>
+          <td style="$proximaStyle">$proximaCita</td>
         </tr>
       ''';
     }).join('');
 
     final filasVacias = vacunasAplicadas.isEmpty
-        ? '<tr><td colspan="5" style="text-align: center; padding: 4mm; color: #64748b; font-style: italic;">Sin dosis registradas en el sistema nominal.</td></tr>'
+        ? '<tr><td colspan="6" style="text-align: center; padding: 4mm; color: #64748b; font-style: italic;">Sin dosis registradas en el sistema nominal.</td></tr>'
         : filasVacunas;
 
     final imgQrTag = qrBase64 != null
@@ -848,6 +870,7 @@ class _CarnetVacunacionDialogState extends State<CarnetVacunacionDialog> {
             <th>Fecha</th>
             <th>Lote</th>
             <th>Centro</th>
+            <th>Prox. Cita</th>
           </tr>
         </thead>
         <tbody>
@@ -1608,7 +1631,7 @@ class _CarnetVacunacionDialogState extends State<CarnetVacunacionDialog> {
                               ),
                               const SizedBox(height: 2),
                               Text(
-                                'Lote: ${v['lote'] ?? "S/L"}  •  $fechaRaw',
+                                'Lote: ${v['lote'] ?? "S/L"}  •  $fechaRaw${_calcularProximaCita(v['fecha']?.toString(), v['intervalo_dias'] as int?) != '—' ? '  •  Próx: ${_calcularProximaCita(v['fecha']?.toString(), v['intervalo_dias'] as int?)}' : ''}',
                                 style: const TextStyle(fontSize: 10, color: Color(0xFF64748B)),
                               ),
                             ],
@@ -1624,11 +1647,12 @@ class _CarnetVacunacionDialogState extends State<CarnetVacunacionDialog> {
           else
             Table(
               columnWidths: const {
-                0: FlexColumnWidth(2.6),
-                1: FlexColumnWidth(1.2),
-                2: FlexColumnWidth(1.4),
-                3: FlexColumnWidth(1.2),
-                4: FlexColumnWidth(1.6),
+                0: FlexColumnWidth(2.3),
+                1: FlexColumnWidth(1.1),
+                2: FlexColumnWidth(1.2),
+                3: FlexColumnWidth(1.1),
+                4: FlexColumnWidth(1.4),
+                5: FlexColumnWidth(1.3),
               },
               children: [
                 TableRow(
@@ -1636,10 +1660,12 @@ class _CarnetVacunacionDialogState extends State<CarnetVacunacionDialog> {
                   children: [
                     _thCell('Biológico / Vacuna'), _thCell('Dosis'),
                     _thCell('Fecha'), _thCell('Lote'), _thCell('Establecimiento'),
+                    _thCell('Próx. Cita'),
                   ],
                 ),
                 ...vacunasAplicadas.take(6).map((v) {
                   final fechaRaw = v['fecha'] != null ? v['fecha'].toString().split('T')[0] : '-';
+                  final proxCita = _calcularProximaCita(v['fecha']?.toString(), v['intervalo_dias'] as int?);
                   return TableRow(
                     decoration: const BoxDecoration(border: Border(top: BorderSide(color: Color(0xFFD1FAE5), width: 0.6))),
                     children: [
@@ -1648,6 +1674,7 @@ class _CarnetVacunacionDialogState extends State<CarnetVacunacionDialog> {
                       _tdCell(fechaRaw),
                       _tdCell(v['lote'] ?? 'S/L'),
                       _tdCell(v['centro'] ?? 'CDI Pedro Urbina', isItalic: true),
+                      _tdCell(proxCita, isBold: proxCita != '—'),
                     ],
                   );
                 }),

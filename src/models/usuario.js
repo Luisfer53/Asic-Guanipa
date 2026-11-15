@@ -26,7 +26,8 @@ module.exports = (sequelize, DataTypes) => {
                 foreignKey: 'nombre_usuario',
                 sourceKey: 'nombre_usuario',
                 otherKey: 'id_rol',
-                as: 'roles'
+                as: 'roles',
+                timestamps: false
             });
             // Seguridad
             Usuario.hasOne(models.SeguridadUsuario, {

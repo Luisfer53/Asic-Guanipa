@@ -1,7 +1,10 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:asis_guanipa_frontend/services/api_service.dart';
 import 'package:asis_guanipa_frontend/models/paciente.dart';
 import 'package:asis_guanipa_frontend/utils/upper_case_text_formatter.dart';
+import 'package:asis_guanipa_frontend/utils/date_text_formatter.dart';
 
 class CreatePatientDialog extends StatefulWidget {
   final Function([String? searchKey]) onPatientCreated;
@@ -101,12 +104,13 @@ class _CreatePatientDialogState extends State<CreatePatientDialog> {
   final _telefonoCtrl = TextEditingController();
   final _correoCtrl = TextEditingController();
   final _ocupacionCtrl = TextEditingController();
-  String _sexo = 'M';
-  String _estadoCivil = 'Soltero(a)';
+  String? _sexo;
+  String? _estadoCivil;
   DateTime? _fechaNacimiento;
+  final _fechaNacCtrl = TextEditingController();
 
   // ── Dirección de habitación del paciente ──
-  String _selectedSector = 'San José de Guanipa Centro';
+  String? _selectedSector;
   final _calleCtrl = TextEditingController();
   final _numeroCasaCtrl = TextEditingController();
   final _puntoRefCtrl = TextEditingController();
@@ -120,8 +124,11 @@ class _CreatePatientDialogState extends State<CreatePatientDialog> {
   final _telRepCtrl = TextEditingController();
   final _ocupRepCtrl = TextEditingController();
   final _parentescoCtrl = TextEditingController();
-  String _sexoRep = 'M';
-  String _estadoCivilRep = 'Soltero(a)';
+  String? _sexoRep;
+  String? _estadoCivilRep;
+  Timer? _repSearchDebounce;
+  bool _buscandoRepresentante = false;
+  String? _infoRepresentanteEncontrado;
 
   // ── Datos clínicos ──
   final _pesoCtrl = TextEditingController();
@@ -196,6 +203,10 @@ class _CreatePatientDialogState extends State<CreatePatientDialog> {
 
       if (p.fechaNacimiento.isNotEmpty) {
         _fechaNacimiento = DateTime.tryParse(p.fechaNacimiento);
+        if (_fechaNacimiento != null) {
+          _fechaNacCtrl.text =
+              '${_fechaNacimiento!.day.toString().padLeft(2, '0')}/${_fechaNacimiento!.month.toString().padLeft(2, '0')}/${_fechaNacimiento!.year}';
+        }
       }
 
       // Representante
@@ -229,9 +240,6 @@ class _CreatePatientDialogState extends State<CreatePatientDialog> {
         if (fetchedNames.isNotEmpty && mounted) {
           setState(() {
             _sectores = fetchedNames;
-            if (!_sectores.contains(_selectedSector)) {
-              _selectedSector = _sectores.first;
-            }
           });
         }
       }
@@ -240,6 +248,7 @@ class _CreatePatientDialogState extends State<CreatePatientDialog> {
 
   @override
   void dispose() {
+    _repSearchDebounce?.cancel();
     _nombre1Ctrl.dispose();
     _nombre2Ctrl.dispose();
     _apellido1Ctrl.dispose();
@@ -265,30 +274,118 @@ class _CreatePatientDialogState extends State<CreatePatientDialog> {
     _vacunasCtrl.dispose();
     _discapacidadCtrl.dispose();
     _antecedentesFamCtrl.dispose();
+    _fechaNacCtrl.dispose();
     super.dispose();
+  }
+
+  void _onCedulaRepChanged(String val) {
+    _repSearchDebounce?.cancel();
+    final digits = val.replaceAll(RegExp(r'\D'), '');
+    if (digits.length < 5) {
+      if (_infoRepresentanteEncontrado != null) {
+        setState(() => _infoRepresentanteEncontrado = null);
+      }
+      return;
+    }
+
+    _repSearchDebounce = Timer(const Duration(milliseconds: 350), () async {
+      if (!mounted) return;
+      setState(() => _buscandoRepresentante = true);
+      try {
+        final res = await _apiService.buscarRepresentantePorCedula(digits);
+        if (!mounted) return;
+        final data = (res.containsKey('data') && res['data'] is Map<String, dynamic>)
+            ? res['data'] as Map<String, dynamic>
+            : res;
+
+        if (data['encontrado'] == true || res['encontrado'] == true) {
+          final targetData = (data['encontrado'] == true) ? data : res;
+          final nom1 = (targetData['nombre1'] as String? ?? '').trim();
+          final nom2 = (targetData['nombre2'] as String? ?? '').trim();
+          final ape1 = (targetData['apellido1'] as String? ?? '').trim();
+          final ape2 = (targetData['apellido2'] as String? ?? '').trim();
+          final tel = (targetData['telefono'] as String? ?? '').trim();
+          final ocup = (targetData['ocupacion'] as String? ?? '').trim();
+          final dir = targetData['direccion'] as Map<String, dynamic>?;
+          final int totalHijos = (targetData['hijos_registrados'] as num?)?.toInt() ?? 0;
+          final nomCompleto = (targetData['nombre_completo'] as String? ?? '').trim();
+
+          setState(() {
+            if (nom1.isNotEmpty) _nom1RepCtrl.text = nom1;
+            if (nom2.isNotEmpty) _nom2RepCtrl.text = nom2;
+            if (ape1.isNotEmpty) _ape1RepCtrl.text = ape1;
+            if (ape2.isNotEmpty) _ape2RepCtrl.text = ape2;
+            if (tel.isNotEmpty) _telRepCtrl.text = tel;
+            if (ocup.isNotEmpty && _ocupRepCtrl.text.isEmpty) _ocupRepCtrl.text = ocup;
+
+            if (dir != null) {
+              final sec = dir['sector'] as String?;
+              final cal = dir['calle'] as String?;
+              final cas = dir['numero_casa'] as String?;
+              final ref = dir['punto_referencia'] as String?;
+
+              if (sec != null && sec.isNotEmpty && (_selectedSector == null || _selectedSector!.isEmpty)) {
+                if (!_sectores.contains(sec)) {
+                  _sectores.add(sec);
+                }
+                _selectedSector = sec;
+              }
+              if (cal != null && cal.isNotEmpty && _calleCtrl.text.isEmpty) _calleCtrl.text = cal;
+              if (cas != null && cas.isNotEmpty && _numeroCasaCtrl.text.isEmpty) _numeroCasaCtrl.text = cas;
+              if (ref != null && ref.isNotEmpty && _puntoRefCtrl.text.isEmpty) _puntoRefCtrl.text = ref;
+            }
+
+            _infoRepresentanteEncontrado = '$nomCompleto ($totalHijos dependiente${totalHijos == 1 ? "" : "s"} registrado${totalHijos == 1 ? "" : "s"})';
+          });
+        } else {
+          setState(() {
+            _infoRepresentanteEncontrado = null;
+          });
+        }
+      } catch (_) {
+      } finally {
+        if (mounted) setState(() => _buscandoRepresentante = false);
+      }
+    });
   }
 
   Future<void> _selectDate(BuildContext context) async {
     final DateTime? picked = await showDatePicker(
       context: context,
-      initialDate: DateTime.now().subtract(const Duration(days: 365 * 18)),
+      initialDate: _fechaNacimiento ?? DateTime.now().subtract(const Duration(days: 365 * 18)),
       firstDate: DateTime(1900),
       lastDate: DateTime.now(),
     );
-    if (picked != null && picked != _fechaNacimiento) {
+    if (picked != null) {
       setState(() {
         _fechaNacimiento = picked;
+        _fechaNacCtrl.text =
+            '${picked.day.toString().padLeft(2, '0')}/${picked.month.toString().padLeft(2, '0')}/${picked.year}';
       });
     }
   }
 
   Future<void> _crearPaciente() async {
     if (!_formKey.currentState!.validate()) return;
-    if (_fechaNacimiento == null) {
+    if (_sexo == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Por favor seleccione el sexo del paciente')),
+      );
+      return;
+    }
+    final parsedFecha = DateTextFormatter.parse(_fechaNacCtrl.text);
+    if (parsedFecha == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Por favor seleccione la fecha de nacimiento'),
+          content: Text('Por favor ingrese una fecha de nacimiento válida (DD/MM/AAAA)'),
         ),
+      );
+      return;
+    }
+    _fechaNacimiento = parsedFecha;
+    if (_selectedSector == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Por favor seleccione el sector / comunidad')),
       );
       return;
     }
@@ -308,7 +405,7 @@ class _CreatePatientDialogState extends State<CreatePatientDialog> {
       if (calleVal.isNotEmpty) calleVal,
       if (casaVal.isNotEmpty) 'Casa $casaVal',
       if (refVal.isNotEmpty) refVal,
-      '- Sector: $_selectedSector',
+      if (_selectedSector != null) '- Sector: $_selectedSector',
     ].join(' ');
 
     if (isEditMode) {
@@ -316,9 +413,9 @@ class _CreatePatientDialogState extends State<CreatePatientDialog> {
         id: widget.paciente!.id,
         nombre: _nombre1Ctrl.text.trim(),
         apellido: _apellido1Ctrl.text.trim(),
-        cedula: _isMinor ? null : _cedulaCtrl.text.trim(),
+        cedula: _cedulaCtrl.text.trim().isNotEmpty ? _cedulaCtrl.text.trim() : null,
         fechaNacimiento: _fechaNacimiento!.toIso8601String().split('T')[0],
-        sexo: _sexo,
+        sexo: _sexo ?? 'M',
         telefono: _telefonoCtrl.text.trim().isNotEmpty
             ? _telefonoCtrl.text.trim()
             : null,
@@ -355,9 +452,9 @@ class _CreatePatientDialogState extends State<CreatePatientDialog> {
         apellido2: _apellido2Ctrl.text.trim().isNotEmpty
             ? _apellido2Ctrl.text.trim()
             : null,
-        cedula: _isMinor ? '' : _cedulaCtrl.text.trim(),
+        cedula: _cedulaCtrl.text.trim(),
         fechaNacimiento: _fechaNacimiento!.toIso8601String().split('T')[0],
-        sexo: _sexo,
+        sexo: _sexo!,
         estadoCivil: _estadoCivil,
         ocupacion: _ocupacionCtrl.text.trim().isNotEmpty
             ? _ocupacionCtrl.text.trim()
@@ -371,7 +468,7 @@ class _CreatePatientDialogState extends State<CreatePatientDialog> {
         calle: calleVal.isNotEmpty ? calleVal : null,
         numeroCasa: casaVal.isNotEmpty ? casaVal : null,
         puntoReferencia: refVal.isNotEmpty ? refVal : null,
-        sector: _selectedSector,
+        sector: _selectedSector ?? '',
         // Representante
         nombreRepresentante: _isMinor ? _nom1RepCtrl.text.trim() : null,
         nombre2Representante: _isMinor && _nom2RepCtrl.text.trim().isNotEmpty
@@ -534,26 +631,42 @@ class _CreatePatientDialogState extends State<CreatePatientDialog> {
                 ),
                 const SizedBox(height: 12),
 
-                // Fecha nacimiento
-                InkWell(
-                  onTap: () => _selectDate(context),
-                  child: InputDecorator(
-                    decoration: const InputDecoration(
-                      labelText: 'Fecha de Nacimiento *',
-                      border: OutlineInputBorder(),
-                      prefixIcon: Icon(Icons.calendar_today_outlined),
-                    ),
-                    child: Text(
-                      _fechaNacimiento != null
-                          ? '${_fechaNacimiento!.day.toString().padLeft(2, '0')}/${_fechaNacimiento!.month.toString().padLeft(2, '0')}/${_fechaNacimiento!.year}'
-                          : 'Seleccionar fecha',
-                      style: TextStyle(
-                        color: _fechaNacimiento != null
-                            ? Colors.black
-                            : Colors.grey[600],
-                      ),
+                // Fecha nacimiento con teclado directo y botón opcional de calendario
+                TextFormField(
+                  controller: _fechaNacCtrl,
+                  keyboardType: TextInputType.datetime,
+                  inputFormatters: [
+                    FilteringTextInputFormatter.allow(RegExp(r'[\d/]')),
+                    DateTextFormatter(),
+                  ],
+                  decoration: InputDecoration(
+                    labelText: 'Fecha de Nacimiento (DD/MM/AAAA) *',
+                    hintText: 'DD/MM/AAAA',
+                    border: const OutlineInputBorder(),
+                    prefixIcon: const Icon(Icons.cake_outlined),
+                    suffixIcon: IconButton(
+                      icon: const Icon(Icons.calendar_today_outlined),
+                      tooltip: 'Abrir calendario',
+                      onPressed: () => _selectDate(context),
                     ),
                   ),
+                  onChanged: (val) {
+                    final dt = DateTextFormatter.parse(val);
+                    if (dt != null) {
+                      setState(() {
+                        _fechaNacimiento = dt;
+                      });
+                    }
+                  },
+                  validator: (val) {
+                    if (val == null || val.trim().isEmpty) {
+                      return 'Ingrese la fecha de nacimiento';
+                    }
+                    if (DateTextFormatter.parse(val) == null) {
+                      return 'Fecha inválida (use formato DD/MM/AAAA)';
+                    }
+                    return null;
+                  },
                 ),
                 const SizedBox(height: 12),
 
@@ -584,6 +697,11 @@ class _CreatePatientDialogState extends State<CreatePatientDialog> {
                         if (_sinCedula) {
                           _cedulaCtrl.clear();
                           _fechaNacimiento ??= DateTime.now();
+                          if (_fechaNacCtrl.text.isEmpty) {
+                            final now = DateTime.now();
+                            _fechaNacCtrl.text =
+                                '${now.day.toString().padLeft(2, '0')}/${now.month.toString().padLeft(2, '0')}/${now.year}';
+                          }
                         }
                       });
                     },
@@ -591,18 +709,21 @@ class _CreatePatientDialogState extends State<CreatePatientDialog> {
                 ),
                 const SizedBox(height: 12),
 
-                // Cédula del paciente
-                if (!_sinCedula) ...[
-                  _field(
-                    _cedulaCtrl,
-                    _isMinor ? 'Cédula de Identidad (Opcional)' : 'Cédula de Identidad *',
-                    icon: Icons.badge_outlined,
-                    keyboardType: TextInputType.number,
-                    required: !_isMinor && !_sinCedula,
-                    requiredMsg: 'La cédula es requerida para mayores de edad',
-                  ),
-                  const SizedBox(height: 12),
-                ],
+                // Cédula del paciente (siempre visible; opcional para menores o recién nacidos)
+                _field(
+                  _cedulaCtrl,
+                  _isMinor
+                      ? 'Cédula de Identidad del Menor (Opcional)'
+                      : (_sinCedula ? 'Cédula de Identidad (Opcional)' : 'Cédula de Identidad *'),
+                  icon: Icons.badge_outlined,
+                  keyboardType: TextInputType.number,
+                  required: !_isMinor && !_sinCedula,
+                  requiredMsg: 'La cédula es requerida para mayores de edad',
+                  helperText: _isMinor
+                      ? 'Opcional si el menor aún no posee cédula propia'
+                      : (_sinCedula ? 'Opcional para pacientes dependientes' : null),
+                ),
+                const SizedBox(height: 12),
                 const SizedBox(height: 12),
 
                 // Sexo y Estado Civil
@@ -611,6 +732,7 @@ class _CreatePatientDialogState extends State<CreatePatientDialog> {
                     Expanded(
                       child: DropdownButtonFormField<String>(
                         initialValue: _sexo,
+                        hint: const Text('Seleccionar Sexo...'),
                         decoration: const InputDecoration(
                           labelText: 'Sexo *',
                           border: OutlineInputBorder(),
@@ -623,13 +745,15 @@ class _CreatePatientDialogState extends State<CreatePatientDialog> {
                           ),
                           DropdownMenuItem(value: 'F', child: Text('Femenino')),
                         ],
-                        onChanged: (v) => setState(() => _sexo = v!),
+                        onChanged: (v) => setState(() => _sexo = v),
+                        validator: (v) => v == null ? 'Seleccione sexo' : null,
                       ),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
                       child: DropdownButtonFormField<String>(
                         initialValue: _estadoCivil,
+                        hint: const Text('Seleccionar Estado Civil...'),
                         decoration: const InputDecoration(
                           labelText: 'Estado Civil',
                           border: OutlineInputBorder(),
@@ -639,7 +763,7 @@ class _CreatePatientDialogState extends State<CreatePatientDialog> {
                               (e) => DropdownMenuItem(value: e, child: Text(e)),
                             )
                             .toList(),
-                        onChanged: (v) => setState(() => _estadoCivil = v!),
+                        onChanged: (v) => setState(() => _estadoCivil = v),
                       ),
                     ),
                   ],
@@ -683,6 +807,7 @@ class _CreatePatientDialogState extends State<CreatePatientDialog> {
                 // Sector
                 DropdownButtonFormField<String>(
                   initialValue: _selectedSector,
+                  hint: const Text('Seleccionar Sector / Comunidad...'),
                   decoration: const InputDecoration(
                     labelText: 'Sector / Comunidad *',
                     border: OutlineInputBorder(),
@@ -691,7 +816,8 @@ class _CreatePatientDialogState extends State<CreatePatientDialog> {
                   items: _sectores
                       .map((s) => DropdownMenuItem(value: s, child: Text(s)))
                       .toList(),
-                  onChanged: (v) => setState(() => _selectedSector = v!),
+                  onChanged: (v) => setState(() => _selectedSector = v),
+                  validator: (v) => v == null ? 'Seleccione sector' : null,
                 ),
                 const SizedBox(height: 12),
 
@@ -736,6 +862,49 @@ class _CreatePatientDialogState extends State<CreatePatientDialog> {
                   ),
                   const SizedBox(height: 12),
 
+                  _field(
+                    _cedRepCtrl,
+                    'Cédula de Identidad del Representante *',
+                    icon: Icons.badge_outlined,
+                    required: true,
+                    keyboardType: TextInputType.number,
+                    onChanged: _onCedulaRepChanged,
+                    suffixIcon: _buscandoRepresentante
+                        ? const Padding(
+                            padding: EdgeInsets.all(12),
+                            child: SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            ),
+                          )
+                        : null,
+                  ),
+                  if (_infoRepresentanteEncontrado != null) ...[
+                    const SizedBox(height: 6),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFDCFCE7),
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(color: const Color(0xFF86EFAC)),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.check_circle, size: 16, color: Color(0xFF16A34A)),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: Text(
+                              'Representante registrado: $_infoRepresentanteEncontrado',
+                              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF15803D)),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                  const SizedBox(height: 12),
+
                   Row(
                     children: [
                       Expanded(
@@ -768,18 +937,9 @@ class _CreatePatientDialogState extends State<CreatePatientDialog> {
                   Row(
                     children: [
                       Expanded(
-                        child: _field(
-                          _cedRepCtrl,
-                          'Cédula *',
-                          icon: Icons.badge_outlined,
-                          required: true,
-                          keyboardType: TextInputType.number,
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
                         child: DropdownButtonFormField<String>(
                           initialValue: _sexoRep,
+                          hint: const Text('Seleccionar Sexo...'),
                           decoration: const InputDecoration(
                             labelText: 'Sexo *',
                             border: OutlineInputBorder(),
@@ -794,7 +954,15 @@ class _CreatePatientDialogState extends State<CreatePatientDialog> {
                               child: Text('Femenino'),
                             ),
                           ],
-                          onChanged: (v) => setState(() => _sexoRep = v!),
+                          onChanged: (v) => setState(() => _sexoRep = v),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: _field(
+                          _parentescoCtrl,
+                          'Parentesco * (Ej: Madre)',
+                          required: true,
                         ),
                       ),
                     ],
@@ -803,14 +971,6 @@ class _CreatePatientDialogState extends State<CreatePatientDialog> {
 
                   Row(
                     children: [
-                      Expanded(
-                        child: _field(
-                          _parentescoCtrl,
-                          'Parentesco * (Ej: Madre)',
-                          required: true,
-                        ),
-                      ),
-                      const SizedBox(width: 12),
                       Expanded(
                         child: _field(
                           _telRepCtrl,
@@ -820,15 +980,11 @@ class _CreatePatientDialogState extends State<CreatePatientDialog> {
                           keyboardType: TextInputType.phone,
                         ),
                       ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-
-                  Row(
-                    children: [
+                      const SizedBox(width: 12),
                       Expanded(
                         child: DropdownButtonFormField<String>(
                           initialValue: _estadoCivilRep,
+                          hint: const Text('Seleccionar Estado Civil...'),
                           decoration: const InputDecoration(
                             labelText: 'Estado Civil',
                             border: OutlineInputBorder(),
@@ -840,13 +996,14 @@ class _CreatePatientDialogState extends State<CreatePatientDialog> {
                               )
                               .toList(),
                           onChanged: (v) =>
-                              setState(() => _estadoCivilRep = v!),
+                              setState(() => _estadoCivilRep = v),
                         ),
                       ),
-                      const SizedBox(width: 12),
-                      Expanded(child: _field(_ocupRepCtrl, 'Ocupación')),
                     ],
                   ),
+                  const SizedBox(height: 12),
+
+                  _field(_ocupRepCtrl, 'Ocupación del Representante'),
                   const SizedBox(height: 20),
                 ],
 
@@ -872,6 +1029,7 @@ class _CreatePatientDialogState extends State<CreatePatientDialog> {
                     Expanded(
                       child: DropdownButtonFormField<String>(
                         initialValue: _tipoSangre,
+                        hint: const Text('Seleccionar Tipo de Sangre...'),
                         decoration: const InputDecoration(
                           labelText: 'Tipo de Sangre',
                           border: OutlineInputBorder(),
@@ -1006,6 +1164,9 @@ class _CreatePatientDialogState extends State<CreatePatientDialog> {
     int maxLines = 1,
     bool required = false,
     String? requiredMsg,
+    String? helperText,
+    Widget? suffixIcon,
+    void Function(String)? onChanged,
   }) {
     final isNumericOrEmail = keyboardType == TextInputType.number ||
         keyboardType == TextInputType.emailAddress ||
@@ -1019,10 +1180,13 @@ class _CreatePatientDialogState extends State<CreatePatientDialog> {
       controller: ctrl,
       keyboardType: keyboardType,
       maxLines: maxLines,
+      onChanged: onChanged,
       decoration: InputDecoration(
         labelText: label,
+        helperText: helperText,
         border: const OutlineInputBorder(),
         prefixIcon: icon != null ? Icon(icon) : null,
+        suffixIcon: suffixIcon,
       ),
       validator: required
           ? (v) => (v == null || v.trim().isEmpty)

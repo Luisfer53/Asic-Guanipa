@@ -1,6 +1,8 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:asis_guanipa_frontend/utils/upper_case_text_formatter.dart';
+import 'package:asis_guanipa_frontend/utils/date_text_formatter.dart';
 import 'package:asis_guanipa_frontend/services/api_service.dart';
 import 'package:asis_guanipa_frontend/models/paciente.dart';
 import 'package:asis_guanipa_frontend/providers/guardia_provider.dart';
@@ -121,8 +123,9 @@ class _QuickPatientDialogState extends State<QuickPatientDialog>
   final _nombre2Ctrl = TextEditingController();
   final _apellido1Ctrl = TextEditingController();
   final _apellido2Ctrl = TextEditingController();
-  String _sexo = 'M';
+  String? _sexo;
   DateTime? _fechaNac;
+  final _fechaNacCtrl = TextEditingController();
   String? _sectorSeleccionado;
   // ─── Contacto ────────────────────────────────────────────────────────────
   final _telCtrl = TextEditingController();
@@ -134,9 +137,15 @@ class _QuickPatientDialogState extends State<QuickPatientDialog>
   String _prefijoCedula = 'V'; // V o E
 
   // ─── Campos menor dependiente ─────────────────────────────────────────────
+  final _cedulaMenorCtrl = TextEditingController();
+  String _prefijoCedulaMenor = 'V';
   final _cedulaRepCtrl = TextEditingController();
   final _nombreRepCtrl = TextEditingController();
+  final _apellidoRepCtrl = TextEditingController();
   int _ordenHijo = 1; // N1, N2, N3…
+  Timer? _repSearchDebounce;
+  bool _buscandoRepresentante = false;
+  String? _infoRepresentanteEncontrado;
 
   // ─── Dirección completa ────────────────────────────────────────────────────
   String? _parroquiaSeleccionada;
@@ -179,14 +188,17 @@ class _QuickPatientDialogState extends State<QuickPatientDialog>
 
   @override
   void dispose() {
+    _repSearchDebounce?.cancel();
     _animCtrl.dispose();
     _nombre1Ctrl.dispose();
     _nombre2Ctrl.dispose();
     _apellido1Ctrl.dispose();
     _apellido2Ctrl.dispose();
     _cedulaTitularCtrl.dispose();
+    _cedulaMenorCtrl.dispose();
     _cedulaRepCtrl.dispose();
     _nombreRepCtrl.dispose();
+    _apellidoRepCtrl.dispose();
     _telCtrl.dispose();
     _correoCtrl.dispose();
     _calleCtrl.dispose();
@@ -198,7 +210,75 @@ class _QuickPatientDialogState extends State<QuickPatientDialog>
     _vacunasPreviasCtrl.dispose();
     _discapacidadCtrl.dispose();
     _antecedentesFamiliaresCtrl.dispose();
+    _fechaNacCtrl.dispose();
     super.dispose();
+  }
+
+  void _onCedulaRepChanged(String val) {
+    _repSearchDebounce?.cancel();
+    final digits = val.replaceAll(RegExp(r'\D'), '');
+    if (digits.length < 5) {
+      if (_infoRepresentanteEncontrado != null) {
+        setState(() => _infoRepresentanteEncontrado = null);
+      }
+      return;
+    }
+
+    _repSearchDebounce = Timer(const Duration(milliseconds: 350), () async {
+      if (!mounted) return;
+      setState(() => _buscandoRepresentante = true);
+      try {
+        final res = await _api.buscarRepresentantePorCedula(digits);
+        if (!mounted) return;
+        final data = (res.containsKey('data') && res['data'] is Map<String, dynamic>)
+            ? res['data'] as Map<String, dynamic>
+            : res;
+
+        if (data['encontrado'] == true || res['encontrado'] == true) {
+          final targetData = (data['encontrado'] == true) ? data : res;
+          final nom1 = (targetData['nombre1'] as String? ?? '').trim();
+          final ape1 = (targetData['apellido1'] as String? ?? '').trim();
+          final nomComp = (targetData['nombre_completo'] as String? ?? '').trim();
+          final tel = (targetData['telefono'] as String? ?? '').trim();
+          final dir = targetData['direccion'] as Map<String, dynamic>?;
+          final int sigHijo = (targetData['siguiente_orden_hijo'] as num?)?.toInt() ?? 1;
+          final int totalHijos = (targetData['hijos_registrados'] as num?)?.toInt() ?? 0;
+
+          setState(() {
+            _nombreRepCtrl.text = nom1.isNotEmpty ? nom1 : nomComp;
+            if (ape1.isNotEmpty) _apellidoRepCtrl.text = ape1;
+            if (tel.isNotEmpty && _telCtrl.text.isEmpty) _telCtrl.text = tel;
+            if (dir != null) {
+              final sec = dir['sector'] as String?;
+              final cal = dir['calle'] as String?;
+              final cas = dir['numero_casa'] as String?;
+              final ref = dir['punto_referencia'] as String?;
+              final par = dir['parroquia'] as String?;
+
+              if (sec != null && sec.isNotEmpty && _sectoresGuanipa.contains(sec)) {
+                _sectorSeleccionado = sec;
+              }
+              if (par != null && par.isNotEmpty && _parroquiasGuanipa.contains(par)) {
+                _parroquiaSeleccionada = par;
+              }
+              if (cal != null && cal.isNotEmpty && _calleCtrl.text.isEmpty) _calleCtrl.text = cal;
+              if (cas != null && cas.isNotEmpty && _numeroCasaCtrl.text.isEmpty) _numeroCasaCtrl.text = cas;
+              if (ref != null && ref.isNotEmpty && _puntoRefCtrl.text.isEmpty) _puntoRefCtrl.text = ref;
+            }
+            _ordenHijo = sigHijo;
+            _infoRepresentanteEncontrado = '$nomComp ($totalHijos dependiente${totalHijos == 1 ? "" : "s"} registrado${totalHijos == 1 ? "" : "s"})';
+          });
+        } else {
+          setState(() {
+            _infoRepresentanteEncontrado = null;
+          });
+        }
+      } catch (_) {
+        // En caso de error de red o timeout no bloquear
+      } finally {
+        if (mounted) setState(() => _buscandoRepresentante = false);
+      }
+    });
   }
 
   // ─── Calcular cédula efectiva ─────────────────────────────────────────────
@@ -208,7 +288,12 @@ class _QuickPatientDialogState extends State<QuickPatientDialog>
       if (num.isEmpty) return null;
       return '$_prefijoCedula-$num';
     } else {
-      // Menor: cédula construida a partir del representante
+      // Si el menor tiene cédula propia ingresada, utilizarla
+      final numMenor = _cedulaMenorCtrl.text.trim();
+      if (numMenor.isNotEmpty) {
+        return '$_prefijoCedulaMenor-$numMenor';
+      }
+      // Menor dependiente sin cédula propia: se genera código a partir del representante
       final repNum = _cedulaRepCtrl.text.trim();
       if (repNum.isEmpty) return null;
       return 'V-$repNum-N$_ordenHijo';
@@ -233,12 +318,48 @@ class _QuickPatientDialogState extends State<QuickPatientDialog>
       return;
     }
 
-    if (_modo == _ModoRegistro.menor && _cedulaRepCtrl.text.trim().isEmpty) {
+    if (_sexo == null) {
       setState(() {
-        _error = 'Ingrese la cédula del representante';
+        _error = 'Seleccione el sexo del paciente';
         _saving = false;
       });
       return;
+    }
+
+    if (_modo == _ModoRegistro.menor) {
+      if (_cedulaRepCtrl.text.trim().isEmpty) {
+        setState(() {
+          _error = 'Ingrese la cédula del representante';
+          _saving = false;
+        });
+        return;
+      }
+      if (_nombreRepCtrl.text.trim().isEmpty) {
+        setState(() {
+          _error = 'El nombre del representante es obligatorio';
+          _saving = false;
+        });
+        return;
+      }
+      if (_apellidoRepCtrl.text.trim().isEmpty) {
+        setState(() {
+          _error = 'El apellido del representante es obligatorio';
+          _saving = false;
+        });
+        return;
+      }
+    }
+
+    if (_fechaNacCtrl.text.trim().isNotEmpty) {
+      final parsed = DateTextFormatter.parse(_fechaNacCtrl.text);
+      if (parsed == null) {
+        setState(() {
+          _error = 'Fecha de nacimiento inválida (use formato DD/MM/AAAA)';
+          _saving = false;
+        });
+        return;
+      }
+      _fechaNac = parsed;
     }
 
     final fechaStr = _fechaNac != null
@@ -257,7 +378,7 @@ class _QuickPatientDialogState extends State<QuickPatientDialog>
       nombre2: _nombre2Ctrl.text.trim().isNotEmpty ? _nombre2Ctrl.text.trim().toUpperCase() : null,
       apellido1: apellido1.toUpperCase(),
       apellido2: _apellido2Ctrl.text.trim().isNotEmpty ? _apellido2Ctrl.text.trim().toUpperCase() : null,
-      sexo: _sexo,
+      sexo: _sexo ?? 'M',
       cedulaIdentidad: _cedulaEfectiva()?.toUpperCase(),
       fechaNacimiento: fechaStr,
       sector: _sectorSeleccionado?.toUpperCase(),
@@ -272,6 +393,9 @@ class _QuickPatientDialogState extends State<QuickPatientDialog>
           : null,
       nombreRepresentante: _modo == _ModoRegistro.menor && _nombreRepCtrl.text.trim().isNotEmpty
           ? _nombreRepCtrl.text.trim().toUpperCase()
+          : null,
+      apellidoRepresentante: _modo == _ModoRegistro.menor && _apellidoRepCtrl.text.trim().isNotEmpty
+          ? _apellidoRepCtrl.text.trim().toUpperCase()
           : null,
       ordenHijo: _modo == _ModoRegistro.menor ? _ordenHijo : null,
       traEsquemaPrevio: _traEsquemaPrevio,
@@ -561,7 +685,7 @@ class _QuickPatientDialogState extends State<QuickPatientDialog>
     final idGeneradoWidget = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _label('ID que se generará'),
+        _label('Identificador Registrado'),
         const SizedBox(height: 6),
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 13),
@@ -571,9 +695,11 @@ class _QuickPatientDialogState extends State<QuickPatientDialog>
             border: Border.all(color: const Color(0xFF93C5FD)),
           ),
           child: Text(
-            _cedulaRepCtrl.text.trim().isEmpty
-                ? 'V-xxxxxxxx-N$_ordenHijo'
-                : 'V-${_cedulaRepCtrl.text.trim()}-N$_ordenHijo',
+            _cedulaMenorCtrl.text.trim().isNotEmpty
+                ? '$_prefijoCedulaMenor-${_cedulaMenorCtrl.text.trim()} (Cédula Propia)'
+                : (_cedulaRepCtrl.text.trim().isEmpty
+                    ? 'V-xxxxxxxx-N$_ordenHijo (Código Asignado)'
+                    : 'V-${_cedulaRepCtrl.text.trim()}-N$_ordenHijo (Código Asignado)'),
             style: const TextStyle(
               fontFamily: 'monospace',
               fontWeight: FontWeight.bold,
@@ -588,7 +714,50 @@ class _QuickPatientDialogState extends State<QuickPatientDialog>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _label('Cédula del Representante (V-)'),
+        // Cédula propia del menor (Opcional)
+        _label('Cédula del Menor (Opcional si ya posee cédula propia)'),
+        const SizedBox(height: 6),
+        Row(
+          children: [
+            Container(
+              decoration: BoxDecoration(
+                color: const Color(0xFFF1F5F9),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: const Color(0xFFCBD5E1)),
+              ),
+              child: DropdownButtonHideUnderline(
+                child: DropdownButton<String>(
+                  value: _prefijoCedulaMenor,
+                  items: ['V', 'E'].map((p) => DropdownMenuItem(
+                    value: p,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      child: Text(p, style: const TextStyle(fontWeight: FontWeight.bold)),
+                    ),
+                  )).toList(),
+                  onChanged: (v) => setState(() => _prefijoCedulaMenor = v!),
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: _inputField(
+                ctrl: _cedulaMenorCtrl,
+                hint: 'Ej: 32456789 (Dejar en blanco si no tiene)',
+                inputType: TextInputType.number,
+                formatters: [FilteringTextInputFormatter.digitsOnly],
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 4),
+        Text(
+          'Si el menor no posee cédula propia, déjelo en blanco y se asignará el código dependiente con su representante.',
+          style: TextStyle(fontSize: 11, color: Colors.grey.shade600, fontStyle: FontStyle.italic),
+        ),
+        const SizedBox(height: 12),
+
+        _label('Cédula del Representante / Tutor (V-) *'),
         const SizedBox(height: 6),
         _inputField(
           ctrl: _cedulaRepCtrl,
@@ -596,11 +765,77 @@ class _QuickPatientDialogState extends State<QuickPatientDialog>
           inputType: TextInputType.number,
           formatters: [FilteringTextInputFormatter.digitsOnly],
           prefixText: 'V-',
+          onChanged: _onCedulaRepChanged,
+          suffixIcon: _buscandoRepresentante
+              ? const Padding(
+                  padding: EdgeInsets.all(12),
+                  child: SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+                )
+              : null,
         ),
+        if (_infoRepresentanteEncontrado != null) ...[
+          const SizedBox(height: 6),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            decoration: BoxDecoration(
+              color: const Color(0xFFDCFCE7),
+              borderRadius: BorderRadius.circular(6),
+              border: Border.all(color: const Color(0xFF86EFAC)),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.check_circle, size: 16, color: Color(0xFF16A34A)),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    'Representante registrado: $_infoRepresentanteEncontrado',
+                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF15803D)),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
         const SizedBox(height: 10),
-        _label('Nombre del Representante (opcional)'),
-        const SizedBox(height: 6),
-        _inputField(ctrl: _nombreRepCtrl, hint: 'María González'),
+        if (isMobile) ...[
+          _label('Nombre del Representante *'),
+          const SizedBox(height: 6),
+          _inputField(ctrl: _nombreRepCtrl, hint: 'María'),
+          const SizedBox(height: 10),
+          _label('Apellido del Representante *'),
+          const SizedBox(height: 6),
+          _inputField(ctrl: _apellidoRepCtrl, hint: 'González'),
+        ] else ...[
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _label('Nombre del Representante *'),
+                    const SizedBox(height: 6),
+                    _inputField(ctrl: _nombreRepCtrl, hint: 'María'),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _label('Apellido del Representante *'),
+                    const SizedBox(height: 6),
+                    _inputField(ctrl: _apellidoRepCtrl, hint: 'González'),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ],
         const SizedBox(height: 10),
         if (isMobile)
           Column(
@@ -719,39 +954,41 @@ class _QuickPatientDialogState extends State<QuickPatientDialog>
     final fechaWidget = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _label('Fecha de Nacimiento'),
+        _label('Fecha de Nacimiento (DD/MM/AAAA)'),
         const SizedBox(height: 6),
-        InkWell(
-          onTap: _pickFecha,
-          borderRadius: BorderRadius.circular(10),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 13),
-            decoration: BoxDecoration(
-              color: const Color(0xFFF1F5F9),
+        TextField(
+          controller: _fechaNacCtrl,
+          keyboardType: TextInputType.datetime,
+          inputFormatters: [
+            FilteringTextInputFormatter.allow(RegExp(r'[\d/]')),
+            DateTextFormatter(),
+          ],
+          decoration: InputDecoration(
+            hintText: 'DD/MM/AAAA',
+            filled: true,
+            fillColor: const Color(0xFFF1F5F9),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+            isDense: true,
+            border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: const Color(0xFFCBD5E1)),
+              borderSide: const BorderSide(color: Color(0xFFCBD5E1)),
             ),
-            child: Row(
-              children: [
-                Icon(Icons.calendar_today_rounded, size: 16, color: Colors.grey.shade600),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    _fechaNac != null
-                        ? '${_fechaNac!.day.toString().padLeft(2, '0')}/'
-                            '${_fechaNac!.month.toString().padLeft(2, '0')}/'
-                            '${_fechaNac!.year}'
-                        : 'DD/MM/AAAA',
-                    style: TextStyle(
-                      color: _fechaNac != null ? Colors.black87 : Colors.grey.shade500,
-                      fontSize: 13,
-                    ),
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-              ],
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: const BorderSide(color: Color(0xFFCBD5E1)),
+            ),
+            suffixIcon: IconButton(
+              icon: Icon(Icons.calendar_today_rounded, size: 18, color: Colors.grey.shade600),
+              tooltip: 'Abrir calendario',
+              onPressed: _pickFecha,
             ),
           ),
+          onChanged: (val) {
+            final dt = DateTextFormatter.parse(val);
+            if (dt != null) {
+              setState(() => _fechaNac = dt);
+            }
+          },
         ),
       ],
     );
@@ -1239,6 +1476,8 @@ class _QuickPatientDialogState extends State<QuickPatientDialog>
     List<TextInputFormatter>? formatters,
     String? prefixText,
     IconData? prefixIcon,
+    Widget? suffixIcon,
+    void Function(String)? onChanged,
   }) {
     final effectiveFormatters = formatters ?? (inputType == TextInputType.emailAddress || inputType == TextInputType.number || inputType == TextInputType.phone
         ? null
@@ -1248,13 +1487,17 @@ class _QuickPatientDialogState extends State<QuickPatientDialog>
       keyboardType: inputType,
       textCapitalization: inputType == TextInputType.emailAddress ? TextCapitalization.none : TextCapitalization.characters,
       inputFormatters: effectiveFormatters,
-      onChanged: (_) => setState(() {}), // para actualizar preview cédula menor
+      onChanged: (val) {
+        setState(() {}); // para actualizar preview cédula menor
+        onChanged?.call(val);
+      },
       decoration: InputDecoration(
         hintText: hint,
         hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 13),
         prefixText: prefixText,
         prefixStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
         prefixIcon: prefixIcon != null ? Icon(prefixIcon, size: 18, color: Colors.grey.shade500) : null,
+        suffixIcon: suffixIcon,
         filled: true,
         fillColor: const Color(0xFFF1F5F9),
         border: OutlineInputBorder(
@@ -1293,7 +1536,11 @@ class _QuickPatientDialogState extends State<QuickPatientDialog>
       ),
     );
     if (picked != null && mounted) {
-      setState(() => _fechaNac = picked);
+      setState(() {
+        _fechaNac = picked;
+        _fechaNacCtrl.text =
+            '${picked.day.toString().padLeft(2, '0')}/${picked.month.toString().padLeft(2, '0')}/${picked.year}';
+      });
     }
   }
 

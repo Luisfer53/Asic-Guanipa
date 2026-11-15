@@ -100,7 +100,7 @@ class _MinimalLoadingScreenState extends State<MinimalLoadingScreen> {
 
               // Texto con tipografía bonita
               Text(
-                'Asis Guanipa',
+                'ASIC Guanipa',
                 style: TextStyle(
                   fontSize: 22,
                   fontWeight: FontWeight.bold,
@@ -112,7 +112,7 @@ class _MinimalLoadingScreenState extends State<MinimalLoadingScreen> {
               const SizedBox(height: 10),
 
               Text(
-                'Iniciando sesión automática',
+                'Verificando sesión...',
                 style: TextStyle(fontSize: 14, color: Colors.grey[600]),
               ),
             ],

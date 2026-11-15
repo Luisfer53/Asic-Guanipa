@@ -14,6 +14,7 @@ import 'package:asis_guanipa_frontend/screen/almacen_screen.dart';
 import 'package:asis_guanipa_frontend/screen/reportes_screen.dart';
 import 'package:asis_guanipa_frontend/screen/gestion_descartes_biologicos_screen.dart';
 import 'package:asis_guanipa_frontend/screen/seguridad_screen.dart';
+import 'package:asis_guanipa_frontend/utils/role_permissions.dart';
 import 'package:asis_guanipa_frontend/screen/consulta_medica_screen.dart';
 
 final Set<String> routesWithoutSignin = <String>{"/landing", "/signin", "/reset-password"};
@@ -117,6 +118,16 @@ final router = GoRouter(
 
     if (authProvider.hasSession() && routesWithoutSignin.contains(path)) {
       return "/";
+    }
+
+    // Protección de rutas por roles asignados
+    if (authProvider.hasSession()) {
+      final user = authProvider.getCurrentUser();
+      final roles = user?.roles ?? [];
+
+      if (!RolePermissions.canAccessRoute(roles, path)) {
+        return "/";
+      }
     }
 
     return null;

@@ -459,7 +459,7 @@ const getPatientHistory = async (req, res) => {
                             model: db.LoteInsumo, as: 'lote',
                             include: [{ model: db.ArticuloMedico, as: 'articulo', attributes: ['id_articulo', 'nombre_articulo', 'tipo'] }]
                         },
-                        { model: db.EsquemaDosificacion, as: 'esquema', attributes: ['id_esquema', 'numero_dosis'] }
+                        { model: db.EsquemaDosificacion, as: 'esquema', attributes: ['id_esquema', 'numero_dosis', 'intervalo_dias_previo', 'edad_minima_meses', 'edad_maxima_meses'] }
                     ]
                 },
                 {
@@ -730,6 +730,7 @@ const createPatientRapido = async (req, res) => {
             cedula_identidad,
             cedula_representante,
             nombre_representante,
+            apellido_representante,
             telefono_representante,
             parentesco_representante,
             orden_hijo,
@@ -819,8 +820,8 @@ const createPatientRapido = async (req, res) => {
                 const partesRep = (nombre_representante || '').trim().split(/\s+/);
                 personaRep = await db.Persona.create({
                     cedula_identidad: toUpperOrNull(repClean),
-                    nombre1: toUpperOrNull(partesRep[0] || 'REPRESENTANTE'),
-                    apellido1: toUpperOrNull(partesRep[1] || apellido1),
+                    nombre1: toUpperOrNull(req.body.nombre1_representante || req.body.nombre_representante || partesRep[0] || 'REPRESENTANTE'),
+                    apellido1: toUpperOrNull(apellido_representante || req.body.apellido1_representante || partesRep[1] || apellido1),
                     sexo: 'F',
                     fecha_nacimiento: '1990-01-01'
                 }, { transaction });
@@ -949,9 +950,105 @@ const createPatientRapido = async (req, res) => {
     }
 };
 
+const buscarRepresentante = async (req, res) => {
+    try {
+        const { cedula } = req.params;
+        if (!cedula || !cedula.trim()) {
+            return res.status(400).json({ success: false, message: 'Cédula requerida' });
+        }
+
+        const raw = cedula.trim();
+        const digits = raw.replace(/[^0-9]/g, '');
+        if (!digits) {
+            return res.json({ success: true, data: { encontrado: false } });
+        }
+
+        // Buscar en db.Persona por coincidencia de cédula
+        const persona = await db.Persona.findOne({
+            where: {
+                [Op.or]: [
+                    { cedula_identidad: { [Op.iLike]: `%${digits}%` } },
+                    { cedula_identidad: `V-${digits}` },
+                    { cedula_identidad: `E-${digits}` },
+                    { cedula_identidad: digits }
+                ]
+            },
+            include: [
+                { model: db.Telefono, as: 'telefonos', attributes: ['numero_telefono'] },
+                { model: db.Correo, as: 'correos', attributes: ['correo'] },
+                {
+                    model: db.Direccion, as: 'direcciones',
+                    attributes: ['parroquia', 'calle', 'numero_casa', 'punto_referencia'],
+                    include: [{ model: db.SectorGuanipa, as: 'sector', attributes: ['nombre_sector'] }]
+                }
+            ]
+        });
+
+        if (!persona) {
+            return res.json({ success: true, data: { encontrado: false } });
+        }
+
+        // Contar cuántos menores dependientes tiene registrados como representante
+        const dependientesCount = await db.Paciente.count({
+            where: { id_representante: persona.id_persona }
+        });
+
+        // Extraer teléfono
+        const telefono = persona.telefonos && persona.telefonos.length > 0
+            ? persona.telefonos[0].numero_telefono
+            : '';
+
+        // Extraer correo
+        const correo = persona.correos && persona.correos.length > 0
+            ? persona.correos[0].correo
+            : '';
+
+        // Extraer dirección
+        let dirObj = null;
+        if (persona.direcciones && persona.direcciones.length > 0) {
+            const d = persona.direcciones[0];
+            dirObj = {
+                parroquia: d.parroquia || '',
+                calle: d.calle || '',
+                numero_casa: d.numero_casa || '',
+                punto_referencia: d.punto_referencia || '',
+                sector: d.sector?.nombre_sector || ''
+            };
+        }
+
+        const nomCompleto = [persona.nombre1, persona.nombre2, persona.apellido1, persona.apellido2]
+            .filter(Boolean)
+            .join(' ');
+
+        return res.json({
+            success: true,
+            data: {
+                encontrado: true,
+                id_persona: persona.id_persona,
+                cedula_identidad: persona.cedula_identidad,
+                nombre1: persona.nombre1 || '',
+                nombre2: persona.nombre2 || '',
+                apellido1: persona.apellido1 || '',
+                apellido2: persona.apellido2 || '',
+                nombre_completo: nomCompleto,
+                ocupacion: persona.ocupacion || '',
+                telefono: telefono,
+                correo: correo,
+                direccion: dirObj,
+                hijos_registrados: dependientesCount,
+                siguiente_orden_hijo: dependientesCount + 1
+            }
+        });
+    } catch (error) {
+        console.error('Error al buscar representante por cédula:', error);
+        return res.status(500).json({ success: false, message: 'Error interno del servidor', error: error.message });
+    }
+};
+
 module.exports = {
     createPatient,
     createPatientRapido,
+    buscarRepresentante,
     getPatients,
     getPatientHistory,
     getAttentionById,

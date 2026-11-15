@@ -210,7 +210,6 @@ class _SeguridadScreenState extends State<SeguridadScreen>
     final usernameCtrl = TextEditingController(text: user?['username'] ?? user?['nombre_usuario'] ?? '');
     final emailCtrl = TextEditingController(text: user?['email'] ?? user?['correo'] ?? '');
     final passwordCtrl = TextEditingController();
-    String selectedRole = _extraerRol(user);
 
     const rolesDisponibles = [
       'Medico',
@@ -220,6 +219,7 @@ class _SeguridadScreenState extends State<SeguridadScreen>
       'Admin',
       'Basico',
     ];
+    String? selectedRole = isEdit && rolesDisponibles.contains(_extraerRol(user)) ? _extraerRol(user) : null;
 
     showDialog(
       context: context,
@@ -295,7 +295,8 @@ class _SeguridadScreenState extends State<SeguridadScreen>
                     ),
                     const SizedBox(height: 14),
                     DropdownButtonFormField<String>(
-                      initialValue: rolesDisponibles.contains(selectedRole) ? selectedRole : 'Medico',
+                      value: selectedRole,
+                      hint: const Text('Seleccionar rol asistencial...'),
                       decoration: const InputDecoration(
                         labelText: 'Rol Asistencial / Permisos *',
                         prefixIcon: Icon(Icons.admin_panel_settings_outlined),
@@ -310,7 +311,8 @@ class _SeguridadScreenState extends State<SeguridadScreen>
                         DropdownMenuItem(value: 'Admin', child: Text('Administrador (Acceso Total)')),
                         DropdownMenuItem(value: 'Basico', child: Text('Operador Básico')),
                       ],
-                      onChanged: (val) => setDState(() => selectedRole = val ?? 'Medico'),
+                      validator: (v) => (v == null || v.isEmpty) ? 'Seleccione un rol' : null,
+                      onChanged: (val) => setDState(() => selectedRole = val),
                     ),
                   ],
                 ),
@@ -335,14 +337,14 @@ class _SeguridadScreenState extends State<SeguridadScreen>
                     username: username,
                     email: email,
                     password: password.isNotEmpty ? password : null,
-                    role: selectedRole,
+                    role: selectedRole!,
                   );
                 } else {
                   res = await _apiService.registrarUsuario(
                     username: username,
                     email: email,
                     password: password,
-                    role: selectedRole,
+                    role: selectedRole!,
                   );
                 }
 

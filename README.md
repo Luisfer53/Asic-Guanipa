@@ -1,359 +1,166 @@
-# Backend de Autenticación - Node.js + PostgreSQL
+# Sistema de Gestión Clínica y Epidemiológica - ASIC Guanipa
 
-Sistema completo de autenticación backend con Node.js, Express y PostgreSQL que incluye:
-- ✅ Registro de usuarios
-- ✅ Login con contraseñas encriptadas (bcrypt)
-- ✅ Autenticación con JWT
-- ✅ Recuperación de contraseña
-- ✅ Validación de datos
-- ✅ Rutas protegidas
+Sistema integral para la gestión asistencial, control nominal de vacunación, registro de atenciones diarias e inventario clínico del Área de Salud Integral Comunitaria (ASIC) San José de Guanipa.
 
-##   Requisitos Previos
+La plataforma está compuesta por una aplicación cliente desarrollada en Flutter (Web y Android) y un servicio backend modular implementado en Node.js, Express y PostgreSQL con Sequelize ORM.
 
-- **Node.js** (v14 o superior) - [Descargar aquí](https://nodejs.org/)
-- **PostgreSQL** (v12 o superior) - [Descargar aquí](https://www.postgresql.org/download/)
-- **npm** (viene con Node.js)
+---
 
-##  Instalación
+## 1. Módulos del Sistema
 
-### 1. Clonar o descargar el proyecto
+- **Control de Acceso y Seguridad**: Autenticación mediante JSON Web Tokens (JWT), contraseñas cifradas con bcrypt y control de accesos basado en roles clínicos (Médico, Inmunizador, Inventario, Epidemiólogo, Admin y Básico).
+- **Registro Nominal de Pacientes**: Módulo de historia clínica digital, soporte para adultos y menores de edad (con vinculación a representantes legales), validación de identificación oficial venezolana (V/E) y estandarización de datos en mayúsculas.
+- **Jornadas Diarias de Salud**: Registro rápido de inmunizaciones, triaje básico, captura de signos vitales (temperatura, peso, talla) y emisión de constancias de atención con código QR.
+- **Carnet Digital de Vacunación**: Generación y visualización del carnet oficial nominal (anverso y reverso) adaptado para dispositivos móviles e impresión.
+- **Gestión de Inventario y Cadena de Frío**: Control de lotes de insumos y biológicos, fechas de vencimiento, stock disponible, kardex de movimientos y reportes de descartes para trazabilidad sanitaria.
+- **Sala Situacional y Vigilancia Epidemiológica**: Consolidación de estadísticas periódicas y exportación de reportes de morbilidad y cobertura de vacunación.
+
+---
+
+## 2. Arquitectura y Tecnologías
+
+### Backend
+- **Entorno de ejecución**: Node.js (v18 o superior)
+- **Framework web**: Express.js
+- **Base de datos**: PostgreSQL
+- **ORM**: Sequelize con soporte para migraciones y seeders
+- **Seguridad**: JWT (jsonwebtoken), bcryptjs, express-validator, helmet, cors
+- **Generación de documentos**: PDFKit, QRCode
+
+### Frontend
+- **Framework**: Flutter (soporte multiplataforma: Web y Android APK)
+- **Gestión de estado**: Provider
+- **Diseño**: Material Design con componentes adaptados para dispositivos móviles y escritorio
+
+---
+
+## 3. Requisitos Previos
+
+- **Node.js** v18.x o superior
+- **npm** v9.x o superior
+- **PostgreSQL** v14.x o superior
+- **Flutter SDK** v3.24 o superior (únicamente para compilación del cliente)
+
+---
+
+## 4. Instalación y Configuración Local
+
+### Paso 1: Clonar el repositorio
 
 ```bash
-cd "c:\Users\Luis\Documents\Proyecto cdi"
+git clone https://github.com/Luisfer53/Asic-Guanipa.git
+cd Asic-Guanipa
 ```
 
-### 2. Instalar dependencias
+### Paso 2: Instalar dependencias del backend
 
 ```bash
 npm install
 ```
 
-### 3. Configurar la base de datos PostgreSQL
+### Paso 3: Configurar variables de entorno
 
-#### Opción A: Usando pgAdmin o línea de comandos
-
-1. Abre PostgreSQL y crea una nueva base de datos:
-
-```sql
-CREATE DATABASE auth_system;
-```
-
-2. Ejecuta el script de base de datos:
+Copie el archivo de plantilla `.env.example` y configure sus credenciales de base de datos y entorno:
 
 ```bash
-psql -U postgres -d auth_system -f database.sql
+cp .env.example .env
 ```
 
-O copia y pega el contenido de `database.sql` en pgAdmin.
-
-#### Opción B: Desde la terminal de PostgreSQL
-
-```bash
-psql -U postgres
-CREATE DATABASE auth_system;
-\c auth_system
-\i database.sql
-```
-
-### 4. Configurar variables de entorno
-
-1. Copia el archivo de ejemplo:
-
-```bash
-copy .env.example .env
-```
-
-2. Edita el archivo `.env` con tus datos:
+Parámetros principales del archivo `.env`:
 
 ```env
-# Server Configuration
 PORT=3000
 NODE_ENV=development
 
-# Database Configuration
+# Configuración de PostgreSQL
 DB_HOST=localhost
 DB_PORT=5432
-DB_NAME=auth_system
+DB_NAME=asic_guanipa
 DB_USER=postgres
-DB_PASSWORD=tu_contraseña_de_postgresql
+DB_PASSWORD=su_contraseña
 
-# JWT Configuration
-JWT_SECRET=cambia_esto_por_algo_super_secreto_y_aleatorio
+# Configuración de JWT
+JWT_SECRET=clave_secreta_para_firmar_tokens
 JWT_EXPIRE=24h
 
-# Email Configuration (opcional)
-SMTP_HOST=smtp.gmail.com
-SMTP_PORT=587
-SMTP_USER=tu_email@gmail.com
-SMTP_PASSWORD=tu_contraseña_de_app
-EMAIL_FROM=noreply@tuapp.com
-
-# Frontend URL
-FRONTEND_URL=http://localhost:3000
+# URL base del backend
+SERVER_URL=http://localhost:3000/api
 ```
 
-> **Nota importante sobre JWT_SECRET**: Genera un string aleatorio seguro. Puedes usar:
-> ```bash
-> node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
-> ```
+### Paso 4: Ejecutar migraciones de base de datos
 
-### 5. Iniciar el servidor
+```bash
+npx sequelize-cli db:migrate
+npx sequelize-cli db:seed:all
+```
 
+### Paso 5: Iniciar el servidor
+
+Modo producción:
 ```bash
 npm start
 ```
 
-Para desarrollo con auto-reinicio:
-
+Modo desarrollo (con recarga automática):
 ```bash
 npm run dev
 ```
 
-Deberías ver:
+---
+
+## 5. Endpoints Principales de la API
+
+### Autenticación y Usuarios
+- `POST /api/auth/login` - Autenticación de usuarios y entrega de token JWT.
+- `POST /api/auth/register` - Registro de nuevos usuarios asistenciales (requiere rol Admin).
+- `GET /api/auth/profile` - Consulta del perfil y permisos del usuario en sesión.
+- `GET /api/auth/users` - Listado y administración de cuentas activas.
+
+### Gestión de Pacientes
+- `GET /api/pacientes` - Consulta paginada y búsqueda nominal por cédula o nombre.
+- `POST /api/pacientes` - Registro exhaustivo de expediente clínico.
+- `POST /api/pacientes/rapido` - Alta inmediata al vuelo desde módulos de atención.
+- `PUT /api/pacientes/datos/:id` - Actualización de datos demográficos y clínicos.
+
+### Atenciones e Inmunización
+- `POST /api/atenciones` - Registro de atención médica y triaje.
+- `POST /api/atenciones/operativos` - Planificación y control de jornadas extramurales.
+- `GET /api/atenciones/operativos` - Consulta de operativos activos y participantes.
+
+### Inventario y Lotes
+- `GET /api/articulos` - Catálogo de artículos médicos y vacunas.
+- `POST /api/articulos` - Registro de nuevos insumos en catálogo.
+- `GET /api/` - Consulta general de inventario por lotes y stock disponible.
+- `POST /api/lotes` - Registro de nuevo lote con fecha de caducidad.
+- `GET /api/movimientos` - Historial de movimientos de kardex (entradas y salidas).
+
+---
+
+## 6. Estructura del Proyecto
 
 ```
-══════════════════════════════════════════════════
- Servidor corriendo en http://localhost:3000
-════════════════════════════════════════════════
-```
-
-##  API Endpoints
-
-### 1. Registro de Usuario
-
-**POST** `/api/auth/register`
-
-```json
-{
-  "username": "usuario123",
-  "email": "usuario@example.com",
-  "password": "Password123"
-}
-```
-
-**Respuesta exitosa (201):**
-
-```json
-{
-  "success": true,
-  "message": "Usuario registrado exitosamente",
-  "data": {
-    "user": {
-      "id": 1,
-      "username": "usuario123",
-      "email": "usuario@example.com",
-      "created_at": "2024-01-01T00:00:00.000Z"
-    },
-    "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
-  }
-}
-```
-
-### 2. Login
-
-**POST** `/api/auth/login`
-
-```json
-{
-  "email": "usuario@example.com",
-  "password": "Password123"
-}
-```
-
-**Respuesta exitosa (200):**
-
-```json
-{
-  "success": true,
-  "message": "Login exitoso",
-  "data": {
-    "user": {
-      "id": 1,
-      "username": "usuario123",
-      "email": "usuario@example.com"
-    },
-    "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
-  }
-}
-```
-
-### 3. Recuperar Contraseña (Solicitud)
-
-**POST** `/api/auth/forgot-password`
-
-```json
-{
-  "email": "usuario@example.com"
-}
-```
-
-**Respuesta exitosa (200):**
-
-```json
-{
-  "success": true,
-  "message": "Si el email existe, recibirás un enlace de recuperación"
-}
-```
-
-> **Nota**: El token de recuperación se mostrará en la consola del servidor si no tienes configurado SMTP.
-
-### 4. Restablecer Contraseña
-
-**POST** `/api/auth/reset-password`
-
-```json
-{
-  "token": "token_recibido_por_email",
-  "newPassword": "NuevaPassword123"
-}
-```
-
-**Respuesta exitosa (200):**
-
-```json
-{
-  "success": true,
-  "message": "Contraseña restablecida exitosamente"
-}
-```
-
-### 5. Obtener Perfil (Ruta Protegida)
-
-**GET** `/api/auth/profile`
-
-**Headers:**
-
-```
-Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
-```
-
-**Respuesta exitosa (200):**
-
-```json
-{
-  "success": true,
-  "data": {
-    "id": 1,
-    "username": "usuario123",
-    "email": "usuario@example.com",
-    "created_at": "2024-01-01T00:00:00.000Z",
-    "updated_at": "2024-01-01T00:00:00.000Z"
-  }
-}
-```
-
-##  Seguridad
-
--  **Contraseñas encriptadas**: Usando bcrypt con salt rounds = 10
--  **JWT para autenticación**: Tokens seguros con expiración configurable
--  **Validación de datos**: Express-validator para validar todas las entradas
--  **Tokens de recuperación**: SHA-256 hash para tokens de recuperación
--  **Variables de entorno**: Credenciales sensibles en archivos .env
--  **CORS habilitado**: Para permitir peticiones desde otros dominios
-
-##  Probando la API
-
-### Usando cURL
-
-**Registro:**
-
-```bash
-curl -X POST http://localhost:3000/api/auth/register \
-  -H "Content-Type: application/json" \
-  -d "{\"username\":\"testuser\",\"email\":\"test@example.com\",\"password\":\"Test123\"}"
-```
-
-**Login:**
-
-```bash
-curl -X POST http://localhost:3000/api/auth/login \
-  -H "Content-Type: application/json" \
-  -d "{\"email\":\"test@example.com\",\"password\":\"Test123\"}"
-```
-
-### Usando Postman
-
-1. Importa la colección o crea requests manualmente
-2. Para rutas protegidas, agrega el header:
-   - Key: `Authorization`
-   - Value: `Bearer TU_TOKEN_AQUI`
-
-##  Estructura del Proyecto
-
-```
-Proyecto cdi/
+├── config/                  # Configuración de conexión y parámetros de base de datos
+├── database/
+│   ├── migrations/          # Migraciones de base de datos con Sequelize
+│   └── seeders/             # Semillas de roles y datos base del sistema
+├── frontend/                # Código fuente de la aplicación Flutter
+│   ├── lib/                 # Vistas, controladores de estado y modelos cliente
+│   └── web/                 # Configuración del contenedor web
+├── public/                  # Archivos estáticos y distribución compilada de Flutter Web
+│   └── downloads/           # Instaladores generados (APK para Android)
 ├── src/
-│   ├── config/
-│   │   └── database.js          # Configuración de PostgreSQL
-│   ├── controllers/
-│   │   └── authController.js    # Lógica de autenticación
-│   ├── middleware/
-│   │   ├── auth.js              # Middleware JWT
-│   │   └── validator.js         # Validaciones
-│   └── routes/
-│       └── authRoutes.js        # Rutas de la API
-├── database.sql                  # Script de base de datos
-├── server.js                     # Servidor principal
-├── package.json                  # Dependencias
-├── .env                          # Variables de entorno (NO subir a Git)
-├── .env.example                  # Plantilla de variables
-└── .gitignore                    # Archivos ignorados por Git
+│   ├── controllers/         # Lógica de negocio y controladores de endpoints
+│   ├── middleware/          # Middlewares de autenticación, roles y validación
+│   ├── models/              # Definición de entidades Sequelize
+│   ├── routes/              # Declaración de rutas de la API REST
+│   └── utils/               # Utilidades de auditoría y formateo
+├── server.js                # Punto de entrada de la aplicación Express
+├── package.json             # Manifiesto de dependencias y scripts de ejecución
+└── README.md                # Documentación técnica del proyecto
 ```
 
-##  Solución de Problemas
+---
 
-### Error de conexión a PostgreSQL
+## 7. Licencia
 
-```
-Error en la conexión a PostgreSQL
-```
-
-**Solución:**
-- Verifica que PostgreSQL esté ejecutándose
-- Revisa las credenciales en `.env`
-- Asegúrate de que la base de datos `auth_system` exista
-
-### Error: "listen EADDRINUSE"
-
-**Solución:**
-- El puerto 3000 está en uso
-- Cambia el `PORT` en `.env`
-- O mata el proceso: `taskkill /F /IM node.exe` (Windows)
-
-### Errores de validación
-
-**Solución:**
-- Revisa que los datos cumplan con los requisitos:
-  - Username: 3-50 caracteres, solo letras, números y _
-  - Email: formato válido
-  - Password: mínimo 6 caracteres, incluye mayúscula, minúscula y número
-
-## Configuración de Email (Opcional)
-
-Para habilitar el envío real de emails de recuperación:
-
-### Gmail
-
-1. Habilita "Verificación en 2 pasos" en tu cuenta
-2. Genera una "Contraseña de aplicación"
-3. Usa esas credenciales en `.env`:
-
-```env
-SMTP_HOST=smtp.gmail.com
-SMTP_PORT=587
-SMTP_USER=tu_email@gmail.com
-SMTP_PASSWORD=tu_contraseña_de_app_de_16_digitos
-```
-
-##  Notas Adicionales
-
-- Las contraseñas **nunca** se almacenan en texto plano
-- Los tokens JWT expiran según `JWT_EXPIRE` (por defecto 24h)
-- Los tokens de recuperación expiran en 1 hora
-- En desarrollo, los tokens de recuperación se muestran en la consola
-
-
-##  Licencia
-
-ISC
+Proyecto desarrollado para fines académicos y asistenciales en el marco del convenio UPTJAA y ASIC San José de Guanipa.

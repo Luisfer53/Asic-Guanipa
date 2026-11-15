@@ -1,5 +1,5 @@
 const db = require('../models');
-const { sequelize, AtencionDiaria, ConsumoInsumo, LoteInsumo, Paciente, Persona, RegistroVacunacion, OperativoSalud, CentroSalud, SectorGuanipa, OperativoStock, ArticuloMedico } = db;
+const { sequelize, AtencionDiaria, ConsumoInsumo, LoteInsumo, Paciente, Persona, RegistroVacunacion, OperativoSalud, CentroSalud, SectorGuanipa, OperativoStock, ArticuloMedico, MovimientoInventario } = db;
 const { semanaEpidemiologica } = require('../utils/formatters');
 const { logAction } = require('../utils/auditLogger');
 
@@ -150,9 +150,21 @@ exports.registrarCompleto = async (req, res) => {
             await pacienteRecord.update({ peso: parseFloat(pesoFinal) }, { transaction: t });
         }
 
-        // 4. Registrar consumos de insumos y descontar stock (con soporte de stock bloqueado por jornada)
-        if (consumos && consumos.length > 0) {
-            for (const consumo of consumos) {
+        // 4. Registrar consumos de insumos y biológicos, descontar stock y asentar en el Kárdex
+        const consumosConsolidados = [...(consumos || [])];
+        if (vacunaciones && vacunaciones.length > 0) {
+            for (const vac of vacunaciones) {
+                const idLoteVac = vac.id_lote || vac.id_lote_insumo;
+                if (!idLoteVac) continue;
+                const yaExiste = consumosConsolidados.some(c => (c.id_lote_insumo || c.id_lote) == idLoteVac);
+                if (!yaExiste) {
+                    consumosConsolidados.push({ id_lote_insumo: idLoteVac, cantidad_usada: 1 });
+                }
+            }
+        }
+
+        if (consumosConsolidados.length > 0) {
+            for (const consumo of consumosConsolidados) {
                 const loteId = consumo.id_lote_insumo || consumo.id_lote;
                 if (!loteId) continue;
 
@@ -213,6 +225,21 @@ exports.registrarCompleto = async (req, res) => {
                     id_atencion: nuevaAtencion.id_atencion,
                     id_lote_insumo: loteId,
                     cantidad_usada: cant
+                }, { transaction: t });
+
+                // Registrar salida asistencial en el Kárdex de inventario (movimientos_inventario)
+                const pacienteNombre = `${personaRecord?.nombre1 || nombre || ''} ${personaRecord?.apellido1 || apellido || ''}`.trim();
+                const cedulaTxt = cedulaDoc ? ` (C.I. ${cedulaDoc})` : '';
+                const tipoAtencionTxt = tipoAtencion === 'inmunizacion' ? 'Inmunización / PAI' : (tipoAtencion === 'consulta_medica' ? 'Consulta Médica' : tipoAtencion);
+                const modalidadTxt = atencion.modalidad ? ` [${atencion.modalidad}]` : '';
+
+                await MovimientoInventario.create({
+                    id_lote_insumo: loteId,
+                    id_centro: idCentro || 1,
+                    tipo_movimiento: 'Salida Asistencial',
+                    cantidad: cant,
+                    justificacion: `Consumo clínico en ${tipoAtencionTxt}${modalidadTxt} — Paciente: ${pacienteNombre}${cedulaTxt} (Lote: ${lote.numero_lote || 'S/L'})`,
+                    fecha_movimiento: fechaVisita ? new Date(fechaVisita) : new Date()
                 }, { transaction: t });
             }
         }
@@ -651,15 +678,17 @@ exports.listarPersonalDisponible = async (req, res) => {
                 {
                     model: db.Role,
                     as: 'roles',
-                    attributes: ['id_serial', 'nombre_rol']
+                    attributes: ['id_serial', 'nombre_rol'],
+                    through: { attributes: [] }
                 }
             ],
             order: [['nombre_usuario', 'ASC']]
         });
 
+        const ROLES_NORMALIZADOS = ['admin', 'medico', 'enfermeria', 'inmunizador', 'epidemiologo'];
         const personal = usuarios.filter(u => {
-            const userRoles = (u.roles || []).map(r => r.nombre_rol);
-            return userRoles.some(r => ROLES_PERMITIDOS.includes(r));
+            const userRoles = (u.roles || []).map(r => (r.nombre_rol || '').normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim());
+            return userRoles.some(r => ROLES_NORMALIZADOS.includes(r));
         }).map(u => {
             const p = u.persona || {};
             const nom1 = p.nombre1 || '';

@@ -4,17 +4,21 @@ import 'dart:html' as html;
 
 void setSessionToken(String token) {
   try {
+    // Almacenamiento exclusivo de sesión: se destruye automáticamente al cerrar la pestaña o navegador
     html.window.sessionStorage['jwt'] = token;
-    html.window.localStorage['jwt'] = token;
+    // Eliminar cualquier token persistente viejo de localStorage para que la sesión expire al cerrar la página
+    html.window.localStorage.remove('jwt');
   } catch (_) {}
 }
 
 String? getSessionToken() {
   try {
+    // Solo recuperar de sessionStorage (activo únicamente mientras la pestaña esté abierta)
     final s = html.window.sessionStorage['jwt'];
     if (s != null && s.trim().isNotEmpty) return s.trim();
-    final l = html.window.localStorage['jwt'];
-    if (l != null && l.trim().isNotEmpty) return l.trim();
+
+    // Limpiar cualquier residuo de localStorage
+    html.window.localStorage.remove('jwt');
     return null;
   } catch (_) {
     return null;

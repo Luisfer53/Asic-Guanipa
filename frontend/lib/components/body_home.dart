@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:asis_guanipa_frontend/services/api_service.dart';
 import 'package:asis_guanipa_frontend/providers/auth_providers.dart';
 import 'package:asis_guanipa_frontend/providers/guardia_provider.dart';
+import 'package:asis_guanipa_frontend/utils/role_permissions.dart';
 import 'package:asis_guanipa_frontend/components/apertura_guardia_dialog.dart';
 import 'package:go_router/go_router.dart';
 import 'package:responsive_framework/responsive_framework.dart';
@@ -165,13 +166,40 @@ class _BodyHomeState extends State<BodyHome> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                '$greeting, $displayName',
-                style: const TextStyle(
-                  color: Color(0xFF0F172A),
-                  fontSize: 15,
-                  fontWeight: FontWeight.w700,
-                ),
+              Row(
+                children: [
+                  Flexible(
+                    child: Text(
+                      '$greeting, $displayName',
+                      style: const TextStyle(
+                        color: Color(0xFF0F172A),
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  if (user != null && user.roles.isNotEmpty) ...[
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF1565C0).withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: const Color(0xFF1565C0).withValues(alpha: 0.3)),
+                      ),
+                      child: Text(
+                        user.roles.first.toUpperCase(),
+                        style: const TextStyle(
+                          color: Color(0xFF1565C0),
+                          fontSize: 10,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                    ),
+                  ],
+                ],
               ),
               const SizedBox(height: 1),
               Text(
@@ -216,6 +244,11 @@ class _BodyHomeState extends State<BodyHome> {
         }
 
         if (!prov.hasGuardiaActiva) {
+          final auth = context.read<AuthProvider>();
+          final userRoles = auth.getCurrentUser()?.roles ?? [];
+          if (!RolePermissions.canManageGuardia(userRoles)) {
+            return const SizedBox.shrink();
+          }
           return _GuardiaCallToAction(
             onAbrir: () => AperturaGuardiaDialog.show(context),
           );
@@ -439,7 +472,15 @@ class _BodyHomeState extends State<BodyHome> {
     return Builder(builder: (context) {
       final isMobile = ResponsiveBreakpoints.of(context).isMobile;
       final cols = isMobile ? 1 : 2;
-      final items = List.generate(_modules.length, (i) => _ModuleRow(module: _modules[i]));
+      final auth = context.watch<AuthProvider>();
+      final userRoles = auth.getCurrentUser()?.roles ?? [];
+
+      final visibleModules = _modules
+          .where((m) => RolePermissions.canAccessRoute(userRoles, m.route))
+          .toList();
+
+      final items = List.generate(
+          visibleModules.length, (i) => _ModuleRow(module: visibleModules[i]));
 
       if (cols == 1) {
         return Column(

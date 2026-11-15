@@ -1553,6 +1553,7 @@ class ApiService {
     // Menor dependiente
     String? cedulaRepresentante,
     String? nombreRepresentante,
+    String? apellidoRepresentante,
     String? telefonoRepresentante,
     int? ordenHijo,
     bool traEsquemaPrevio = false,
@@ -1591,6 +1592,7 @@ class ApiService {
           'es_menor': cedulaRepresentante != null && cedulaRepresentante.isNotEmpty,
           'cedula_representante': cedulaRepresentante,
           'nombre_representante': nombreRepresentante,
+          'apellido_representante': apellidoRepresentante,
           'telefono_representante': telefonoRepresentante,
           'orden_hijo': ordenHijo,
           'esquema_previo_otro_centro': traEsquemaPrevio,
@@ -1688,6 +1690,36 @@ class ApiService {
         return json.decode(response.body);
       }
       return {'success': false, 'message': 'Error al obtener movimientos de inventario'};
+    } catch (e) {
+      return {'success': false, 'message': 'Error de conexión: $e'};
+    }
+  }
+
+  // ─── Buscar datos del representante por cédula para autocompletar ──────────
+  Future<Map<String, dynamic>> buscarRepresentantePorCedula(String cedula) async {
+    final token = await getToken();
+    try {
+      final clean = cedula.replaceAll(RegExp(r'[^0-9]'), '');
+      if (clean.isEmpty) return {'success': false, 'message': 'Cédula inválida'};
+      final response = await http.get(
+        Uri.parse('$baseUrl/pacientes/representante/$clean'),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+      );
+      if (response.statusCode == 200) {
+        final dynamic decoded = json.decode(response.body);
+        if (decoded is Map<String, dynamic>) {
+          if (decoded['data'] is Map<String, dynamic>) {
+            final inner = Map<String, dynamic>.from(decoded['data'] as Map);
+            inner['success'] = decoded['success'];
+            return inner;
+          }
+          return decoded;
+        }
+      }
+      return {'success': false, 'message': 'No se pudo consultar el representante'};
     } catch (e) {
       return {'success': false, 'message': 'Error de conexión: $e'};
     }

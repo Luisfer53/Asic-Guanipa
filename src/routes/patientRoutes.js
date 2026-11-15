@@ -15,6 +15,7 @@ router.post('/pacientes', [verifyToken, isMedicoOrAdmin], patientController.crea
 router.post('/pacientes/rapido', [verifyToken, isMedicoOrAdmin], patientController.createPatientRapido);
 
 router.get('/pacientes', [verifyToken, isMedicoOrAdmin], patientController.getPatients);
+router.get('/pacientes/representante/:cedula', [verifyToken, isMedicoOrAdmin], patientController.buscarRepresentante);
 router.get('/pacientes/listado', [verifyToken, isMedicoOrAdmin], patientController.getAllPatients);
 router.get('/pacientes/contactos', [verifyToken, isMedicoOrAdmin], patientController.getPatientContacts);
 router.get('/pacientes/:cedula/historial', [verifyToken, isMedicoOrAdmin], patientController.getPatientHistory);

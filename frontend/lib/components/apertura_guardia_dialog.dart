@@ -29,8 +29,8 @@ class _AperturaGuardiaDialogState extends State<AperturaGuardiaDialog> {
   Map<String, dynamic>? _selectedJornada;
 
   String _modalidad = 'intramural'; // 'intramural' | 'extramural'
-  String _centroSalud = 'CDI Pedro Urbina';
-  String _turno = 'Mañana (7:00 AM - 1:00 PM)';
+  String? _centroSalud;
+  String? _turno;
   final _supervisorCtrl = TextEditingController();
   final _sectorCtrl = TextEditingController();
   final _termoCtrl = TextEditingController();
@@ -54,15 +54,7 @@ class _AperturaGuardiaDialogState extends State<AperturaGuardiaDialog> {
   @override
   void initState() {
     super.initState();
-    // Sugerir turno según la hora
-    final hora = DateTime.now().hour;
-    if (hora >= 7 && hora < 13) {
-      _turno = 'Mañana (7:00 AM - 1:00 PM)';
-    } else if (hora >= 13 && hora < 19) {
-      _turno = 'Tarde (1:00 PM - 7:00 PM)';
-    } else {
-      _turno = 'Noche (7:00 PM - 7:00 AM)';
-    }
+    // Turno y centro inician en blanco para selección manual
 
     _cargarJornadas();
 
@@ -137,8 +129,8 @@ class _AperturaGuardiaDialogState extends State<AperturaGuardiaDialog> {
 
     await guardiaProv.abrirGuardia(
       modalidad: _modalidad,
-      centroSalud: _centroSalud,
-      turno: _turno,
+      centroSalud: _centroSalud ?? 'CDI Pedro Urbina',
+      turno: _turno ?? 'Mañana (7:00 AM - 1:00 PM)',
       supervisor: _supervisorCtrl.text.trim(),
       sectorComunidad: _modalidad == 'extramural' ? _sectorCtrl.text.trim() : null,
       termoId: _modalidad == 'extramural' ? _termoCtrl.text.trim() : null,
@@ -177,9 +169,10 @@ class _AperturaGuardiaDialogState extends State<AperturaGuardiaDialog> {
   }
 
   String get turnoCorto {
-    if (_turno.contains('Mañana')) return 'Turno Mañana';
-    if (_turno.contains('Tarde')) return 'Turno Tarde';
-    if (_turno.contains('Noche')) return 'Turno Noche';
+    if (_turno == null) return 'Sin Turno';
+    if (_turno!.contains('Mañana')) return 'Turno Mañana';
+    if (_turno!.contains('Tarde')) return 'Turno Tarde';
+    if (_turno!.contains('Noche')) return 'Turno Noche';
     return '24 Horas';
   }
 
@@ -292,18 +285,22 @@ class _AperturaGuardiaDialogState extends State<AperturaGuardiaDialog> {
                         _buildLabel('Centro de Salud'),
                         DropdownButtonFormField<String>(
                           value: _centroSalud,
+                          hint: const Text('Seleccionar Centro de Salud...'),
                           decoration: _inputDecoration(Icons.business_rounded),
                           items: _centrosDisponibles.map((c) => DropdownMenuItem(value: c, child: Text(c))).toList(),
-                          onChanged: (v) => setState(() => _centroSalud = v ?? _centroSalud),
+                          onChanged: (v) => setState(() => _centroSalud = v),
+                          validator: (v) => v == null ? 'Seleccione un centro de salud' : null,
                         ),
                         const SizedBox(height: 14),
 
                         _buildLabel('Turno de Guardia'),
                         DropdownButtonFormField<String>(
                           value: _turno,
+                          hint: const Text('Seleccionar Turno de Guardia...'),
                           decoration: _inputDecoration(Icons.schedule_rounded),
                           items: _turnos.map((t) => DropdownMenuItem(value: t, child: Text(t))).toList(),
-                          onChanged: (v) => setState(() => _turno = v ?? _turno),
+                          onChanged: (v) => setState(() => _turno = v),
+                          validator: (v) => v == null ? 'Seleccione el turno de guardia' : null,
                         ),
                         const SizedBox(height: 14),
 

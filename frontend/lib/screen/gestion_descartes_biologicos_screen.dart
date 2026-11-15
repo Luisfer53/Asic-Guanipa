@@ -25,7 +25,7 @@ class _GestionDescartesBiologicosScreenState
   bool _loadingEsquemas = false;
 
   // === ESTADO TAB 2: DESCARTES ===
-  String _procesoDisposicion = 'Incineración';
+  String? _procesoDisposicion;
   DateTime _fechaRetiro = DateTime.now();
   List<Map<String, dynamic>> _lotesVencidos = [];
   bool _loadingDescartes = false;
@@ -131,8 +131,6 @@ class _GestionDescartesBiologicosScreenState
         (a) => a['id_articulo'] == idArt,
         orElse: () => Map<String, dynamic>.from(esquemaEditar['vacuna']),
       );
-    } else if (_articulos.isNotEmpty) {
-      articuloSeleccionado = _articulos.first;
     }
 
     final nombreVacunaNuevaCtrl = TextEditingController();
@@ -216,7 +214,8 @@ class _GestionDescartesBiologicosScreenState
                   ),
                 ] else ...[
                   DropdownButtonFormField<Map<String, dynamic>>(
-                    initialValue: articuloSeleccionado,
+                    value: articuloSeleccionado,
+                    hint: const Text('Seleccionar Biológico / Vacuna...'),
                     decoration: const InputDecoration(
                       labelText: 'Biológico / Vacuna *',
                       border: OutlineInputBorder(),
@@ -427,6 +426,11 @@ class _GestionDescartesBiologicosScreenState
       return;
     }
 
+    if (_procesoDisposicion == null) {
+      _showSnack('Seleccione el método de disposición final.', Colors.orange);
+      return;
+    }
+
     setState(() => _isDiscarding = true);
     try {
       final ids = _lotesVencidos
@@ -436,7 +440,7 @@ class _GestionDescartesBiologicosScreenState
 
       final res = await _apiService.descartarLotes(
         ids: ids,
-        metodoDisposicion: _procesoDisposicion,
+        metodoDisposicion: _procesoDisposicion!,
         fechaRetiro: fechaStr,
       );
 
@@ -587,9 +591,53 @@ class _GestionDescartesBiologicosScreenState
     );
   }
 
+  // ─── Helpers de texto de edad ────────────────────────────────────────────────
+  String _edadTexto(int? meses) {
+    if (meses == null) return 'Sin límite';
+    if (meses == 0) return 'Al nacer';
+    if (meses < 12) return '$meses ${meses == 1 ? "mes" : "meses"}';
+    final anios = meses ~/ 12;
+    final resto = meses % 12;
+    if (resto == 0) return '$anios ${anios == 1 ? "año" : "años"}';
+    return '$anios ${anios == 1 ? "año" : "años"} $resto ${resto == 1 ? "mes" : "meses"}';
+  }
+
+  String _intervaloTexto(int? dias) {
+    if (dias == null) return 'Primera dosis (no requiere intervalo)';
+    if (dias < 30) return '$dias días después de la dosis anterior';
+    if (dias < 365) {
+      final meses = (dias / 30).round();
+      return '$meses ${meses == 1 ? "mes" : "meses"} después de la dosis anterior';
+    }
+    final anios = (dias / 365).round();
+    return '$anios ${anios == 1 ? "año" : "años"} después de la dosis anterior';
+  }
+
+  /// Calcula la fecha de próxima dosis dado la fecha de última aplicación e intervalo
+  String _proximaFechaTexto(int? intervaloDias) {
+    if (intervaloDias == null) return '';
+    final proxima = DateTime.now().add(Duration(days: intervaloDias));
+    final dia = proxima.day.toString().padLeft(2, '0');
+    final mes = proxima.month.toString().padLeft(2, '0');
+    return '$dia/$mes/${proxima.year}';
+  }
+
   // ─── TAB 1: ESQUEMAS DE VACUNACIÓN ───────────────────────────────────────────
   Widget _buildEsquemasTab() {
     final bool isMobile = ResponsiveBreakpoints.of(context).isMobile;
+
+    // ── Agrupar esquemas por vacuna ──────────────────────────────────────────
+    final Map<String, List<Map<String, dynamic>>> agrupados = {};
+    for (final esq in _esquemas) {
+      final vacNombre = esq['vacuna']?['nombre_articulo'] ?? 'Biológico';
+      agrupados.putIfAbsent(vacNombre, () => []).add(esq);
+    }
+    // Ordenar dosis dentro de cada vacuna por id_esquema
+    for (final key in agrupados.keys) {
+      agrupados[key]!.sort((a, b) =>
+          ((a['id_esquema'] ?? 0) as int).compareTo((b['id_esquema'] ?? 0) as int));
+    }
+    final vacunas = agrupados.keys.toList()..sort();
 
     return _loadingEsquemas
         ? const Center(child: CircularProgressIndicator())
@@ -601,6 +649,7 @@ class _GestionDescartesBiologicosScreenState
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  // ── Encabezado ────────────────────────────────────────────
                   isMobile
                       ? Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -615,11 +664,8 @@ class _GestionDescartesBiologicosScreenState
                             ),
                             const SizedBox(height: 2),
                             const Text(
-                              'Dosis, esquemas por edad e intervalos',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: Color(0xFF64748B),
-                              ),
+                              'Programa Ampliado de Inmunizaciones — MPPS Venezuela',
+                              style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
                             ),
                             const SizedBox(height: 12),
                             SizedBox(
@@ -632,11 +678,8 @@ class _GestionDescartesBiologicosScreenState
                                   backgroundColor: _primary,
                                   foregroundColor: Colors.white,
                                   shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(10),
-                                  ),
-                                  padding: const EdgeInsets.symmetric(
-                                    vertical: 12,
-                                  ),
+                                      borderRadius: BorderRadius.circular(10)),
+                                  padding: const EdgeInsets.symmetric(vertical: 12),
                                 ),
                               ),
                             ),
@@ -644,6 +687,7 @@ class _GestionDescartesBiologicosScreenState
                         )
                       : Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             const Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
@@ -658,11 +702,8 @@ class _GestionDescartesBiologicosScreenState
                                 ),
                                 SizedBox(height: 4),
                                 Text(
-                                  'Configuración de dosis, esquemas por edad e intervalos',
-                                  style: TextStyle(
-                                    fontSize: 13,
-                                    color: Color(0xFF64748B),
-                                  ),
+                                  'Programa Ampliado de Inmunizaciones — MPPS Venezuela\nTotal de dosis, edad mínima y próxima cita por biológico',
+                                  style: TextStyle(fontSize: 13, color: Color(0xFF64748B)),
                                 ),
                               ],
                             ),
@@ -674,18 +715,47 @@ class _GestionDescartesBiologicosScreenState
                                 backgroundColor: _primary,
                                 foregroundColor: Colors.white,
                                 shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(10),
-                                ),
+                                    borderRadius: BorderRadius.circular(10)),
                                 padding: const EdgeInsets.symmetric(
-                                  horizontal: 16,
-                                  vertical: 12,
-                                ),
+                                    horizontal: 16, vertical: 12),
                               ),
                             ),
                           ],
                         ),
                   const SizedBox(height: 16),
-                  if (_esquemas.isEmpty)
+
+                  // ── Resumen de vacunas en el PAI ─────────────────────────
+                  if (_esquemas.isNotEmpty) ...[
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFEFF6FF),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: const Color(0xFFBFDBFE)),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.info_outline_rounded,
+                              size: 18, color: Color(0xFF1D4ED8)),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              '${vacunas.length} biológicos · ${_esquemas.length} dosis totales en el esquema PAI vigente',
+                              style: const TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                                color: Color(0xFF1E3A8A),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                  ],
+
+                  // ── Lista agrupada por vacuna ─────────────────────────────
+                  if (agrupados.isEmpty)
                     Container(
                       padding: const EdgeInsets.all(32),
                       width: double.infinity,
@@ -696,18 +766,12 @@ class _GestionDescartesBiologicosScreenState
                       ),
                       child: const Column(
                         children: [
-                          Icon(
-                            Icons.vaccines_outlined,
-                            size: 48,
-                            color: Color(0xFF94A3B8),
-                          ),
+                          Icon(Icons.vaccines_outlined, size: 48, color: Color(0xFF94A3B8)),
                           SizedBox(height: 12),
                           Text(
                             'No hay esquemas de vacunación registrados',
                             style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              color: Color(0xFF475569),
-                            ),
+                                fontWeight: FontWeight.bold, color: Color(0xFF475569)),
                           ),
                         ],
                       ),
@@ -716,142 +780,396 @@ class _GestionDescartesBiologicosScreenState
                     ListView.separated(
                       shrinkWrap: true,
                       physics: const NeverScrollableScrollPhysics(),
-                      itemCount: _esquemas.length,
-                      separatorBuilder: (_, _) => const SizedBox(height: 10),
-                      itemBuilder: (ctx, index) {
-                        final esq = _esquemas[index];
-                        final vacNombre =
-                            esq['vacuna']?['nombre_articulo'] ?? 'Biológico';
-                        final dosis = esq['numero_dosis'] ?? 'Dosis';
-                        final intervalo = esq['intervalo_dias_previo'];
-                        final edadMin = esq['edad_minima_meses'];
-                        final edadMax = esq['edad_maxima_meses'];
+                      itemCount: vacunas.length,
+                      separatorBuilder: (_, __) => const SizedBox(height: 12),
+                      itemBuilder: (ctx, vIdx) {
+                        final vacNombre = vacunas[vIdx];
+                        final dosisLista = agrupados[vacNombre]!;
+                        final totalDosis = dosisLista.length;
+
+                        // Edad mínima del esquema completo = la menor edad mínima entre sus dosis
+                        final edadMinGlobal = dosisLista
+                            .map((d) => d['edad_minima_meses'] as int? ?? 0)
+                            .reduce((a, b) => a < b ? a : b);
+
+                        // Color según tipo de biológico
+                        final esUnica = totalDosis == 1;
+                        final cardColor = esUnica
+                            ? const Color(0xFFF0FDF4)
+                            : const Color(0xFFF8FAFC);
+                        final borderColor = esUnica
+                            ? const Color(0xFFBBF7D0)
+                            : const Color(0xFFE2E8F0);
+                        final accentColor = esUnica
+                            ? const Color(0xFF16A34A)
+                            : _primary;
 
                         return Card(
                           elevation: 0,
+                          color: cardColor,
                           shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            side: const BorderSide(color: Color(0xFFE2E8F0)),
+                            borderRadius: BorderRadius.circular(14),
+                            side: BorderSide(color: borderColor),
                           ),
                           child: Padding(
                             padding: EdgeInsets.all(isMobile ? 12 : 16),
-                            child: Row(
-                              crossAxisAlignment: CrossAxisAlignment.center,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Container(
-                                  padding: EdgeInsets.all(isMobile ? 8 : 12),
-                                  decoration: BoxDecoration(
-                                    color: _primary.withValues(alpha: 0.1),
-                                    borderRadius: BorderRadius.circular(10),
-                                  ),
-                                  child: const Icon(
-                                    Icons.vaccines_rounded,
-                                    color: _primary,
-                                    size: 20,
-                                  ),
-                                ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        vacNombre,
-                                        style: TextStyle(
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: isMobile ? 14 : 16,
-                                          color: const Color(0xFF0F172A),
-                                        ),
+                                // ── Cabecera de la vacuna ─────────────────
+                                Row(
+                                  children: [
+                                    Container(
+                                      padding: const EdgeInsets.all(10),
+                                      decoration: BoxDecoration(
+                                        color: accentColor.withValues(alpha: 0.12),
+                                        borderRadius: BorderRadius.circular(10),
                                       ),
-                                      const SizedBox(height: 2),
-                                      Text(
-                                        'Dosis: $dosis',
-                                        style: TextStyle(
-                                          fontSize: isMobile ? 12 : 14,
-                                          fontWeight: FontWeight.w600,
-                                          color: _primary,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 4),
-                                      Wrap(
-                                        spacing: 6,
-                                        runSpacing: 4,
+                                      child: Icon(Icons.vaccines_rounded,
+                                          color: accentColor, size: 22),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
                                         children: [
-                                          if (intervalo != null)
-                                            Chip(
-                                              avatar: const Icon(
-                                                Icons.timer_outlined,
-                                                size: 12,
-                                              ),
-                                              label: Text(
-                                                '$intervalo días',
-                                                style: TextStyle(
-                                                  fontSize: isMobile ? 10 : 11,
+                                          Text(
+                                            vacNombre,
+                                            style: TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: isMobile ? 15 : 17,
+                                              color: const Color(0xFF0F172A),
+                                            ),
+                                          ),
+                                          const SizedBox(height: 3),
+                                          Wrap(
+                                            spacing: 6,
+                                            runSpacing: 4,
+                                            children: [
+                                              // Badge: Total de dosis
+                                              Container(
+                                                padding: const EdgeInsets.symmetric(
+                                                    horizontal: 8, vertical: 2),
+                                                decoration: BoxDecoration(
+                                                  color: accentColor,
+                                                  borderRadius: BorderRadius.circular(20),
+                                                ),
+                                                child: Text(
+                                                  '$totalDosis ${totalDosis == 1 ? "dosis" : "dosis en total"}',
+                                                  style: const TextStyle(
+                                                    color: Colors.white,
+                                                    fontSize: 11,
+                                                    fontWeight: FontWeight.bold,
+                                                  ),
                                                 ),
                                               ),
-                                              visualDensity:
-                                                  VisualDensity.compact,
-                                              materialTapTargetSize:
-                                                  MaterialTapTargetSize
-                                                      .shrinkWrap,
-                                            ),
-                                          if (edadMin != null ||
-                                              edadMax != null)
-                                            Chip(
-                                              avatar: const Icon(
-                                                Icons.child_care_rounded,
-                                                size: 12,
-                                              ),
-                                              label: Text(
-                                                '${edadMin ?? 0}-${edadMax ?? "N/A"} meses',
-                                                style: TextStyle(
-                                                  fontSize: isMobile ? 10 : 11,
+                                              // Badge: Edad mínima
+                                              Container(
+                                                padding: const EdgeInsets.symmetric(
+                                                    horizontal: 8, vertical: 2),
+                                                decoration: BoxDecoration(
+                                                  color: const Color(0xFFE0F2FE),
+                                                  borderRadius: BorderRadius.circular(20),
+                                                  border: Border.all(
+                                                      color: const Color(0xFF7DD3FC)),
+                                                ),
+                                                child: Row(
+                                                  mainAxisSize: MainAxisSize.min,
+                                                  children: [
+                                                    const Icon(Icons.child_care_rounded,
+                                                        size: 12,
+                                                        color: Color(0xFF0369A1)),
+                                                    const SizedBox(width: 4),
+                                                    Text(
+                                                      'Desde: ${_edadTexto(edadMinGlobal)}',
+                                                      style: const TextStyle(
+                                                        fontSize: 11,
+                                                        fontWeight: FontWeight.w600,
+                                                        color: Color(0xFF0369A1),
+                                                      ),
+                                                    ),
+                                                  ],
                                                 ),
                                               ),
-                                              visualDensity:
-                                                  VisualDensity.compact,
-                                              materialTapTargetSize:
-                                                  MaterialTapTargetSize
-                                                      .shrinkWrap,
-                                            ),
+                                            ],
+                                          ),
                                         ],
                                       ),
-                                    ],
-                                  ),
-                                ),
-                                Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    IconButton(
-                                      constraints: const BoxConstraints(),
-                                      padding: const EdgeInsets.all(4),
-                                      icon: const Icon(
-                                        Icons.edit_note_rounded,
-                                        color: Color(0xFF475569),
-                                        size: 20,
-                                      ),
-                                      onPressed: () =>
-                                          _mostrarDialogoEsquema(esq),
-                                      tooltip: 'Editar Esquema',
-                                    ),
-                                    IconButton(
-                                      constraints: const BoxConstraints(),
-                                      padding: const EdgeInsets.all(4),
-                                      icon: const Icon(
-                                        Icons.delete_outline_rounded,
-                                        color: Colors.red,
-                                        size: 20,
-                                      ),
-                                      onPressed: () => _eliminarEsquema(
-                                        esq['id_esquema'],
-                                        vacNombre,
-                                        dosis,
-                                      ),
-                                      tooltip: 'Eliminar Esquema',
                                     ),
                                   ],
                                 ),
+                                const SizedBox(height: 10),
+                                const Divider(height: 1, color: Color(0xFFE2E8F0)),
+                                const SizedBox(height: 8),
+
+                                // ── Tabla de dosis ────────────────────────
+                                // Encabezado
+                                Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 4, vertical: 2),
+                                  child: Row(
+                                    children: [
+                                      Expanded(
+                                        flex: 2,
+                                        child: Text(
+                                          'DOSIS',
+                                          style: TextStyle(
+                                            fontSize: isMobile ? 9 : 10,
+                                            fontWeight: FontWeight.bold,
+                                            color: const Color(0xFF64748B),
+                                            letterSpacing: 0.6,
+                                          ),
+                                        ),
+                                      ),
+                                      Expanded(
+                                        flex: 2,
+                                        child: Text(
+                                          'EDAD MÍNIMA',
+                                          style: TextStyle(
+                                            fontSize: isMobile ? 9 : 10,
+                                            fontWeight: FontWeight.bold,
+                                            color: const Color(0xFF64748B),
+                                            letterSpacing: 0.6,
+                                          ),
+                                        ),
+                                      ),
+                                      Expanded(
+                                        flex: 2,
+                                        child: Text(
+                                          'INTERVALO',
+                                          style: TextStyle(
+                                            fontSize: isMobile ? 9 : 10,
+                                            fontWeight: FontWeight.bold,
+                                            color: const Color(0xFF64748B),
+                                            letterSpacing: 0.6,
+                                          ),
+                                        ),
+                                      ),
+                                      if (!isMobile)
+                                        Expanded(
+                                          flex: 2,
+                                          child: Text(
+                                            'PRÓXIMA CITA (DESDE HOY)',
+                                            style: TextStyle(
+                                              fontSize: 10,
+                                              fontWeight: FontWeight.bold,
+                                              color: const Color(0xFF64748B),
+                                              letterSpacing: 0.6,
+                                            ),
+                                          ),
+                                        ),
+                                      const SizedBox(width: 48), // acciones
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+
+                                // Filas de dosis
+                                ...dosisLista.asMap().entries.map((entry) {
+                                  final idx = entry.key;
+                                  final esq = entry.value;
+                                  final dosisNombre = esq['numero_dosis'] ?? 'Dosis';
+                                  final intervalo = esq['intervalo_dias_previo'] as int?;
+                                  final edadMin = esq['edad_minima_meses'] as int?;
+                                  final edadMax = esq['edad_maxima_meses'] as int?;
+                                  final esPar = idx % 2 == 0;
+
+                                  String edadRangoTexto;
+                                  if (edadMin != null && edadMax != null) {
+                                    edadRangoTexto =
+                                        '${_edadTexto(edadMin)} – ${_edadTexto(edadMax)}';
+                                  } else if (edadMin != null) {
+                                    edadRangoTexto = 'A partir de ${_edadTexto(edadMin)}';
+                                  } else {
+                                    edadRangoTexto = 'Sin restricción de edad';
+                                  }
+
+                                  return Container(
+                                    decoration: BoxDecoration(
+                                      color: esPar
+                                          ? Colors.white.withValues(alpha: 0.6)
+                                          : Colors.transparent,
+                                      borderRadius: BorderRadius.circular(6),
+                                    ),
+                                    child: Padding(
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 4, vertical: 6),
+                                      child: Row(
+                                        crossAxisAlignment: CrossAxisAlignment.center,
+                                        children: [
+                                          // Nº + nombre de dosis
+                                          Expanded(
+                                            flex: 2,
+                                            child: Row(
+                                              children: [
+                                                Container(
+                                                  width: 22,
+                                                  height: 22,
+                                                  alignment: Alignment.center,
+                                                  decoration: BoxDecoration(
+                                                    color: accentColor,
+                                                    shape: BoxShape.circle,
+                                                  ),
+                                                  child: Text(
+                                                    '${idx + 1}',
+                                                    style: const TextStyle(
+                                                      color: Colors.white,
+                                                      fontSize: 10,
+                                                      fontWeight: FontWeight.bold,
+                                                    ),
+                                                  ),
+                                                ),
+                                                const SizedBox(width: 6),
+                                                Flexible(
+                                                  child: Text(
+                                                    dosisNombre,
+                                                    style: TextStyle(
+                                                      fontSize: isMobile ? 11 : 12,
+                                                      fontWeight: FontWeight.w600,
+                                                      color: const Color(0xFF1E293B),
+                                                    ),
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                          // Edad mínima
+                                          Expanded(
+                                            flex: 2,
+                                            child: Text(
+                                              edadRangoTexto,
+                                              style: TextStyle(
+                                                fontSize: isMobile ? 10 : 11,
+                                                color: const Color(0xFF0369A1),
+                                                fontWeight: FontWeight.w500,
+                                              ),
+                                            ),
+                                          ),
+                                          // Intervalo
+                                          Expanded(
+                                            flex: 2,
+                                            child: Text(
+                                              _intervaloTexto(intervalo),
+                                              style: TextStyle(
+                                                fontSize: isMobile ? 10 : 11,
+                                                color: intervalo == null
+                                                    ? const Color(0xFF16A34A)
+                                                    : const Color(0xFF92400E),
+                                                fontWeight: FontWeight.w500,
+                                              ),
+                                            ),
+                                          ),
+                                          // Próxima cita (solo desktop)
+                                          if (!isMobile)
+                                            Expanded(
+                                              flex: 2,
+                                              child: intervalo != null
+                                                  ? Row(
+                                                      children: [
+                                                        const Icon(
+                                                          Icons.event_available_rounded,
+                                                          size: 13,
+                                                          color: Color(0xFF7C3AED),
+                                                        ),
+                                                        const SizedBox(width: 4),
+                                                        Text(
+                                                          _proximaFechaTexto(intervalo),
+                                                          style: const TextStyle(
+                                                            fontSize: 11,
+                                                            fontWeight: FontWeight.bold,
+                                                            color: Color(0xFF7C3AED),
+                                                          ),
+                                                        ),
+                                                      ],
+                                                    )
+                                                  : const Text(
+                                                      '— Primera vez',
+                                                      style: TextStyle(
+                                                        fontSize: 11,
+                                                        color: Color(0xFF64748B),
+                                                      ),
+                                                    ),
+                                            ),
+                                          // Acciones
+                                          Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              IconButton(
+                                                constraints: const BoxConstraints(),
+                                                padding: const EdgeInsets.all(4),
+                                                icon: const Icon(
+                                                  Icons.edit_note_rounded,
+                                                  color: Color(0xFF475569),
+                                                  size: 18,
+                                                ),
+                                                onPressed: () =>
+                                                    _mostrarDialogoEsquema(esq),
+                                                tooltip: 'Editar dosis',
+                                              ),
+                                              IconButton(
+                                                constraints: const BoxConstraints(),
+                                                padding: const EdgeInsets.all(4),
+                                                icon: const Icon(
+                                                  Icons.delete_outline_rounded,
+                                                  color: Colors.red,
+                                                  size: 18,
+                                                ),
+                                                onPressed: () => _eliminarEsquema(
+                                                  esq['id_esquema'],
+                                                  vacNombre,
+                                                  dosisNombre,
+                                                ),
+                                                tooltip: 'Eliminar dosis',
+                                              ),
+                                            ],
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  );
+                                }),
+
+                                // En móvil: mostrar próxima cita de la última dosis del esquema
+                                if (isMobile) ...[
+                                  const SizedBox(height: 8),
+                                  Builder(builder: (_) {
+                                    // Última dosis que tiene intervalo
+                                    final ultimaConIntervalo = dosisLista
+                                        .where((d) =>
+                                            d['intervalo_dias_previo'] != null)
+                                        .lastOrNull;
+                                    if (ultimaConIntervalo == null) return const SizedBox.shrink();
+                                    final proxFecha = _proximaFechaTexto(
+                                        ultimaConIntervalo['intervalo_dias_previo'] as int);
+                                    return Container(
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 10, vertical: 6),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFFF3E8FF),
+                                        borderRadius: BorderRadius.circular(8),
+                                        border: Border.all(
+                                            color: const Color(0xFFD8B4FE)),
+                                      ),
+                                      child: Row(
+                                        children: [
+                                          const Icon(Icons.event_available_rounded,
+                                              size: 14, color: Color(0xFF7C3AED)),
+                                          const SizedBox(width: 6),
+                                          Expanded(
+                                            child: Text(
+                                              'Próxima cita referencial (desde hoy): $proxFecha',
+                                              style: const TextStyle(
+                                                fontSize: 11,
+                                                fontWeight: FontWeight.bold,
+                                                color: Color(0xFF6D28D9),
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    );
+                                  }),
+                                ],
                               ],
                             ),
                           ),

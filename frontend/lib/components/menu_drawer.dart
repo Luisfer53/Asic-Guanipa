@@ -5,6 +5,7 @@ import 'package:asis_guanipa_frontend/storage/jwt_token.dart';
 import 'package:asis_guanipa_frontend/screen/login_page.dart';
 import 'package:asis_guanipa_frontend/providers/auth_providers.dart';
 import 'package:asis_guanipa_frontend/services/api_service.dart';
+import 'package:asis_guanipa_frontend/utils/role_permissions.dart';
 
 class MenuDrawer extends StatelessWidget {
   const MenuDrawer({super.key});
@@ -95,12 +96,37 @@ class MenuDrawer extends StatelessWidget {
                           fontWeight: FontWeight.w700,
                         ),
                       ),
-                      Text(
-                        currentUser?.email ?? '',
-                        style: TextStyle(
-                          color: Colors.white.withValues(alpha: 0.75),
-                          fontSize: 12,
-                        ),
+                      const SizedBox(height: 2),
+                      Row(
+                        children: [
+                          if (currentUser != null && currentUser.roles.isNotEmpty)
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                              margin: const EdgeInsets.only(right: 6),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFF5A623),
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: Text(
+                                currentUser.roles.first.toUpperCase(),
+                                style: const TextStyle(
+                                  color: Color(0xFF0D47A1),
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                          Expanded(
+                            child: Text(
+                              currentUser?.email ?? '',
+                              style: TextStyle(
+                                color: Colors.white.withValues(alpha: 0.85),
+                                fontSize: 11,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                   ),
@@ -126,7 +152,10 @@ class MenuDrawer extends StatelessWidget {
                     ),
                   ),
                 ),
-                ..._navItems.map((item) => _DrawerTile(item: item)),
+                ..._navItems
+                    .where((item) => RolePermissions.canAccessRoute(
+                        currentUser?.roles ?? [], item.route))
+                    .map((item) => _DrawerTile(item: item)),
               ],
             ),
           ),

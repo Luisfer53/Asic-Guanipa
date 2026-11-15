@@ -95,8 +95,8 @@ class _RecipeDigitalDialogState extends State<RecipeDigitalDialog>
   final TextEditingController _medConcInput = TextEditingController();
   final TextEditingController _medCantInput = TextEditingController();
   final TextEditingController _medPosologiaInput = TextEditingController();
-  String _medFormaSeleccionada = 'Tabletas';
-  String _medViaSeleccionada = 'Vía Oral';
+  String? _medFormaSeleccionada;
+  String? _medViaSeleccionada;
 
   static const Color _primary = Color(0xFF1E3A8A); // Azul institucional MPPS
   static const Color _accent = Color(0xFF0284C7);
@@ -191,16 +191,26 @@ class _RecipeDigitalDialogState extends State<RecipeDigitalDialog>
       return;
     }
 
+    if (_medFormaSeleccionada == null || _medViaSeleccionada == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Por favor seleccione la forma farmacéutica y vía de administración'),
+          backgroundColor: Color(0xFFDC2626),
+        ),
+      );
+      return;
+    }
+
     setState(() {
       _medicamentos.add(
         RecipeMedicamentoItem(
           medicamento: _medNombreInput.text.trim(),
           concentracion: _medConcInput.text.trim(),
-          forma: _medFormaSeleccionada,
+          forma: _medFormaSeleccionada!,
           cantidad: _medCantInput.text.trim().isEmpty
               ? '1 Unidad'
               : _medCantInput.text.trim(),
-          via: _medViaSeleccionada,
+          via: _medViaSeleccionada!,
           posologia: _medPosologiaInput.text.trim().isEmpty
               ? 'Tomar según indicación médica.'
               : _medPosologiaInput.text.trim(),
@@ -211,6 +221,8 @@ class _RecipeDigitalDialogState extends State<RecipeDigitalDialog>
       _medConcInput.clear();
       _medCantInput.clear();
       _medPosologiaInput.clear();
+      _medFormaSeleccionada = null;
+      _medViaSeleccionada = null;
     });
 
     ScaffoldMessenger.of(context).showSnackBar(
@@ -236,6 +248,7 @@ class _RecipeDigitalDialogState extends State<RecipeDigitalDialog>
     _medPosologiaInput.text = pos;
     setState(() {
       _medFormaSeleccionada = forma;
+      _medViaSeleccionada = 'Vía Oral';
     });
   }
 
@@ -1085,6 +1098,7 @@ class _RecipeDigitalDialogState extends State<RecipeDigitalDialog>
                 flex: 2,
                 child: DropdownButtonFormField<String>(
                   value: _medFormaSeleccionada,
+                  hint: const Text('Seleccionar...'),
                   decoration: const InputDecoration(
                     labelText: 'Forma Farmacéutica',
                     border: OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(8))),
@@ -1100,7 +1114,7 @@ class _RecipeDigitalDialogState extends State<RecipeDigitalDialog>
                     DropdownMenuItem(value: 'Crema / Ungüento', child: Text('Crema')),
                   ],
                   onChanged: (val) {
-                    if (val != null) setState(() => _medFormaSeleccionada = val);
+                    setState(() => _medFormaSeleccionada = val);
                   },
                 ),
               ),
@@ -1126,6 +1140,7 @@ class _RecipeDigitalDialogState extends State<RecipeDigitalDialog>
                 flex: 2,
                 child: DropdownButtonFormField<String>(
                   value: _medViaSeleccionada,
+                  hint: const Text('Seleccionar...'),
                   decoration: const InputDecoration(
                     labelText: 'Vía de Administración',
                     border: OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(8))),
@@ -1140,7 +1155,7 @@ class _RecipeDigitalDialogState extends State<RecipeDigitalDialog>
                     DropdownMenuItem(value: 'Inhalatoria', child: Text('Inhalatoria')),
                   ],
                   onChanged: (val) {
-                    if (val != null) setState(() => _medViaSeleccionada = val);
+                    setState(() => _medViaSeleccionada = val);
                   },
                 ),
               ),

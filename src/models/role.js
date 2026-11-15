@@ -11,7 +11,8 @@ module.exports = (sequelize, DataTypes) => {
           sourceKey: 'id_serial',
           otherKey: 'nombre_usuario',
           targetKey: 'nombre_usuario',
-          as: 'usuarios'
+          as: 'usuarios',
+          timestamps: false
         });
       }
     }

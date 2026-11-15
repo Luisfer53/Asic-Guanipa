@@ -1115,21 +1115,7 @@ class _ListPatientsState extends State<ListPatients> {
                   },
                 ),
               ),
-              // Constancia Oficial de Atención con QR
-              Tooltip(
-                message: 'Constancia Oficial de Atención (QR)',
-                child: IconButton(
-                  icon: const Icon(Icons.verified_rounded, size: 18, color: Color(0xFF0284C7)),
-                  tooltip: 'Constancia Oficial de Atención (QR)',
-                  splashRadius: 18,
-                  constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-                  padding: const EdgeInsets.all(5),
-                  onPressed: () {
-                    ConstanciaAtencionDialog.show(context, paciente: p);
-                  },
-                ),
-              ),
-              // Récipe Digital Oficial con QR (Destacado)
+              // Constancia Médica Oficial con QR
               Tooltip(
                 message: 'Emitir Constancia Médica Oficial (QR)',
                 child: Container(

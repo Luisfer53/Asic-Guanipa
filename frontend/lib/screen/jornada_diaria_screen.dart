@@ -1,4 +1,4 @@
-﻿import 'dart:async';
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -9,7 +9,6 @@ import 'package:asis_guanipa_frontend/models/paciente.dart';
 import 'package:asis_guanipa_frontend/providers/guardia_provider.dart';
 import 'package:asis_guanipa_frontend/providers/auth_providers.dart';
 import 'package:asis_guanipa_frontend/components/apertura_guardia_dialog.dart';
-import 'nominal_register/create_patient_dialog.dart';
 import 'nominal_register/quick_patient_dialog.dart';
 import 'nominal_register/carnet_vacunacion_dialog.dart';
 import 'nominal_register/constancia_atencion_dialog.dart';
@@ -20,6 +19,15 @@ class _InsumoItem {
   Map<String, dynamic>? lote;
   int cantidad;
   _InsumoItem({this.lote, this.cantidad = 1});
+}
+
+class _VacunaItem {
+  Map<String, dynamic>? lote;
+  String? dosis;
+  String? via;
+  String? sitio;
+  int? idEsquema;
+  _VacunaItem();
 }
 
 class JornadaDiariaScreen extends StatefulWidget {
@@ -38,6 +46,10 @@ class _JornadaDiariaScreenState extends State<JornadaDiariaScreen> {
   // Flujo en 2 Pasos: 0 = Buscar Paciente, 1 = Vacunar (< 45 seg)
   int _step = 0;
 
+  // Historial de vacunas del paciente seleccionado (para cálculo inteligente de dosis)
+  List<Map<String, dynamic>> _historialVacunasPaciente = [];
+  bool _cargandoHistorial = false;
+
   // Paso 0: Búsqueda
   final _searchController = TextEditingController();
   final _searchFocusNode = FocusNode();
@@ -50,11 +62,9 @@ class _JornadaDiariaScreenState extends State<JornadaDiariaScreen> {
   final _formKey = GlobalKey<FormState>();
   bool _savingAtencion = false;
 
-  // Biológico y aplicación
-  Map<String, dynamic>? _selectedLoteVacuna;
-  String _dosisAplicada = '1ra Dosis';
-  String _viaAdministracion = 'Intramuscular';
-  String _sitioAdministracion = 'Brazo izquierdo';
+  // Lista de vacunas a aplicar en esta visita (hasta 6)
+  static const int _maxVacunasPorVisita = 6;
+  List<_VacunaItem> _vacunasAplicar = [_VacunaItem()];
 
   // Triaje Mínimo Rápido
   final _tempCtrl = TextEditingController(text: '36.5');
@@ -71,6 +81,7 @@ class _JornadaDiariaScreenState extends State<JornadaDiariaScreen> {
   List<_InsumoItem> _insumosUsados = [];
   List<Map<String, dynamic>> _lotesVacunas = [];
   List<Map<String, dynamic>> _lotesInsumos = [];
+  List<Map<String, dynamic>> _esquemasPai = [];
   bool _loadingInventario = false;
 
   static const _primary = Color(0xFF1565C0);
@@ -144,45 +155,53 @@ class _JornadaDiariaScreenState extends State<JornadaDiariaScreen> {
         final valid = data
             .where((l) {
               final exp = DateTime.tryParse(l['fecha_vencimiento'] ?? '');
-              return exp != null && exp.isAfter(today);
+              return (exp == null || exp.isAfter(today)) &&
+                  ((l['stock_actual'] ?? 0) > 0 || (l['stock_reservado'] ?? 0) > 0);
             })
             .map((l) => Map<String, dynamic>.from(l))
             .toList();
 
         _lotesVacunas = valid.where((l) {
           final art = l['articulo'] ?? {};
-          final n = (art['nombre_articulo'] ?? l['nombre_articulo'] ?? '')
-              .toString()
-              .toLowerCase();
-          final t = (art['tipo'] ?? l['tipo'] ?? '').toString().toLowerCase();
-          return t == 'vacuna' ||
-              n.contains('vacun') ||
-              n.contains('biol') ||
-              n.contains('covid') ||
-              n.contains('pentavalente') ||
-              n.contains('bcg') ||
-              n.contains('srp') ||
-              n.contains('polio') ||
-              n.contains('hepat') ||
-              n.contains('toxoide') ||
-              n.contains('influenza') ||
-              n.contains('fiebre') ||
-              n.contains('vph');
+          final t = (art['tipo'] ?? l['tipo'] ?? '').toString().toLowerCase().trim();
+          final n = (art['nombre_articulo'] ?? l['nombre_articulo'] ?? '').toString().toLowerCase();
+          // Excluir tajantemente cualquier equipo médico o insumo descartable
+          if (t.contains('equipo') || t.contains('cava') || t.contains('termo') || t == 'insumo' ||
+              n.contains('cava') || n.contains('termo') || n.contains('guante') || n.contains('jeringa')) {
+            return false;
+          }
+          return t == 'vacuna' || t == 'biologico' || t == 'biológico' ||
+              n.contains('vacun') || n.contains('biol') || n.contains('toxoide') ||
+              n.contains('pentavalente') || n.contains('bcg') || n.contains('srp') ||
+              n.contains('polio') || n.contains('hepat') || n.contains('influenza') ||
+              n.contains('fiebre') || n.contains('vph') || n.contains('rotavirus');
         }).toList();
-        if (_lotesVacunas.isEmpty) _lotesVacunas = List.from(valid);
 
         _lotesInsumos = valid.where((l) {
           final art = l['articulo'] ?? {};
-          final t = (art['tipo'] ?? l['tipo'] ?? '').toString().toLowerCase();
-          return t != 'vacuna';
+          final t = (art['tipo'] ?? l['tipo'] ?? '').toString().toLowerCase().trim();
+          final n = (art['nombre_articulo'] ?? l['nombre_articulo'] ?? '').toString().toLowerCase();
+          // Excluir vacunas y excluir equipos médicos / cadena de frío reutilizables
+          if (t == 'vacuna' || t.contains('equipo') || t.contains('cava') || t.contains('termo') ||
+              n.contains('vacun') || n.contains('biol') || n.contains('cava') || n.contains('termo') ||
+              n.contains('balanza') || n.contains('tensiomet') || n.contains('fonendo') || n.contains('tallimetro')) {
+            return false;
+          }
+          return t == 'insumo' || t.contains('descart') || t.contains('material') || t == 'medicamento' ||
+              n.contains('jeringa') || n.contains('inyect') || n.contains('aguja') || n.contains('guante') ||
+              n.contains('algodon') || n.contains('alcohol') || n.contains('gasa') || n.contains('adhesiv') ||
+              n.contains('curita') || n.contains('baja lengua') || n.contains('bajalengua');
         }).toList();
 
-        // Auto-seleccionar primer lote si aún no hay uno elegido
-        if (_selectedLoteVacuna == null && _lotesVacunas.isNotEmpty) {
-          _selectedLoteVacuna = _lotesVacunas.first;
-        }
         _reordenarLotesPorJornada();
       }
+
+      try {
+        final esqRes = await _api.getEsquemas();
+        if (esqRes['success'] == true && mounted) {
+          _esquemasPai = List<Map<String, dynamic>>.from(esqRes['data'] ?? []);
+        }
+      } catch (_) {}
     } catch (_) {}
     if (mounted) setState(() => _loadingInventario = false);
   }
@@ -224,6 +243,7 @@ class _JornadaDiariaScreenState extends State<JornadaDiariaScreen> {
     setState(() {
       _selectedPaciente = p;
       _step = 1;
+      _historialVacunasPaciente = [];
       // Pre-cargar signos vitales previos si existen
       if (p.peso != null && p.peso! > 0) {
         _pesoCtrl.text = p.peso.toString();
@@ -233,6 +253,153 @@ class _JornadaDiariaScreenState extends State<JornadaDiariaScreen> {
       _tallaCtrl.clear();
       _tempCtrl.text = '36.5';
     });
+    _cargarHistorialPaciente(p);
+  }
+
+  Future<void> _cargarHistorialPaciente(Paciente p) async {
+    setState(() => _cargandoHistorial = true);
+    try {
+      final ident = p.cedula.isNotEmpty ? p.cedula : p.idPaciente.toString();
+      final res = await _api.getHistorialPaciente(ident);
+      if (res['success'] == true && res['atenciones'] != null) {
+        final List atenciones = res['atenciones'] as List;
+        final List<Map<String, dynamic>> vacs = [];
+        for (final a in atenciones) {
+          final fecha = (a['fecha_visita'] ?? '').toString();
+          final vacunaciones = a['vacunaciones'] as List? ?? [];
+          for (final v in vacunaciones) {
+            final lote = v['lote'] as Map<String, dynamic>? ?? {};
+            final art = lote['articulo'] as Map<String, dynamic>? ?? {};
+            final nombreArt = (art['nombre_articulo'] ?? lote['nombre_articulo'] ?? '').toString();
+            final dosis = (v['dosis_aplicada'] ?? '').toString();
+            vacs.add({
+              'fecha': fecha,
+              'nombre_articulo': nombreArt,
+              'id_articulo': art['id_articulo'] ?? lote['id_articulo'],
+              'id_lote': lote['id_lote_insumo'] ?? lote['id_lote'],
+              'dosis_aplicada': dosis,
+            });
+          }
+        }
+        if (mounted) {
+          setState(() {
+            _historialVacunasPaciente = vacs;
+            // Si ya hay vacunas seleccionadas en los renglones, aplicar la dosis correspondiente
+            for (final v in _vacunasAplicar) {
+              if (v.lote != null) {
+                _autoSugerirDosis(v);
+              }
+            }
+          });
+        }
+      }
+    } catch (_) {
+    } finally {
+      if (mounted) setState(() => _cargandoHistorial = false);
+    }
+  }
+
+  String _normalizarNombreVacuna(String raw) {
+    var s = raw.toLowerCase().trim();
+    s = s.replaceAll('á', 'a').replaceAll('é', 'e').replaceAll('í', 'i').replaceAll('ó', 'o').replaceAll('ú', 'u');
+    s = s.replaceAll('vacuna', '').replaceAll('biologico', '').trim();
+    return s;
+  }
+
+  bool _esMismoBiologico(Map<String, dynamic>? lote, Map<String, dynamic> regHistorial) {
+    if (lote == null) return false;
+    final art = lote['articulo'] as Map<String, dynamic>? ?? {};
+    final idArtLote = art['id_articulo'] ?? lote['id_articulo'];
+    final idArtHist = regHistorial['id_articulo'];
+    if (idArtLote != null && idArtHist != null && idArtLote.toString() == idArtHist.toString()) {
+      return true;
+    }
+
+    final nomLote = _normalizarNombreVacuna((art['nombre_articulo'] ?? lote['nombre_articulo'] ?? '').toString());
+    final nomHist = _normalizarNombreVacuna((regHistorial['nombre_articulo'] ?? '').toString());
+
+    if (nomLote.isEmpty || nomHist.isEmpty) return false;
+    if (nomLote == nomHist) return true;
+
+    const keywords = [
+      'bcg', 'pentavalente', 'polio', 'vop', 'ipv', 'srp', 'sarampion',
+      'hepatitis b', 'hepatitis a', 'toxoide', 'antiamaril', 'fiebre amarilla',
+      'influenza', 'neumococo', 'rotavirus', 'vph', 'covid'
+    ];
+    for (final k in keywords) {
+      if (nomLote.contains(k) && nomHist.contains(k)) {
+        return true;
+      }
+    }
+
+    return nomLote.contains(nomHist) || nomHist.contains(nomLote);
+  }
+
+  List<String> _obtenerDosisPrevias(Map<String, dynamic>? lote, {required _VacunaItem renglonActual}) {
+    if (lote == null) return [];
+    final dosisList = <String>[];
+    for (final reg in _historialVacunasPaciente) {
+      if (_esMismoBiologico(lote, reg)) {
+        final d = (reg['dosis_aplicada'] ?? '').toString().trim();
+        if (d.isNotEmpty && !dosisList.contains(d)) {
+          dosisList.add(d);
+        }
+      }
+    }
+    for (final otro in _vacunasAplicar) {
+      if (identical(otro, renglonActual)) break;
+      if (otro.lote != null && otro.dosis != null) {
+        final artOtro = otro.lote!['articulo'] ?? {};
+        if (_esMismoBiologico(lote, {'nombre_articulo': artOtro['nombre_articulo'] ?? otro.lote!['nombre_articulo'], 'id_articulo': artOtro['id_articulo']})) {
+          if (!dosisList.contains(otro.dosis!)) {
+            dosisList.add(otro.dosis!);
+          }
+        }
+      }
+    }
+    return dosisList;
+  }
+
+  String _calcularSiguienteDosis(List<String> dosisPrevias, String nombreBiologico) {
+    final lower = nombreBiologico.toLowerCase();
+    final esUnica = lower.contains('bcg') || lower.contains('fiebre amarilla') || lower.contains('antiamaril');
+
+    bool tiene(String keyword) {
+      final kw = keyword.toLowerCase().trim();
+      return dosisPrevias.any((d) {
+        final dl = d.toLowerCase().trim();
+        return dl == kw || dl.contains(kw);
+      });
+    }
+
+    if (esUnica && !tiene('única') && !tiene('unica')) {
+      return 'Única';
+    }
+
+    if (!tiene('1ra') && !tiene('primera') && !tiene('1')) {
+      return '1ra Dosis';
+    }
+    if (!tiene('2da') && !tiene('segunda') && !tiene('2')) {
+      return '2da Dosis';
+    }
+    if (!tiene('3ra') && !tiene('tercera') && !tiene('3')) {
+      return '3ra Dosis';
+    }
+    if (!tiene('refuerzo 1') && !tiene('1er refuerzo') && !tiene('primer refuerzo')) {
+      return 'Refuerzo 1';
+    }
+    if (!tiene('refuerzo 2') && !tiene('2do refuerzo') && !tiene('segundo refuerzo')) {
+      return 'Refuerzo 2';
+    }
+    return 'Refuerzo Anual';
+  }
+
+  void _autoSugerirDosis(_VacunaItem item) {
+    if (item.lote == null) return;
+    final art = item.lote!['articulo'] ?? {};
+    final nombreArt = (art['nombre_articulo'] ?? item.lote!['nombre_articulo'] ?? '').toString();
+    final previas = _obtenerDosisPrevias(item.lote, renglonActual: item);
+    item.dosis = _calcularSiguienteDosis(previas, nombreArt);
   }
 
   bool _isPediatrico(Paciente? p) {
@@ -261,12 +428,116 @@ class _JornadaDiariaScreenState extends State<JornadaDiariaScreen> {
     }
   }
 
+  int? _pacienteEdadEnMeses() {
+    if (_selectedPaciente == null || _selectedPaciente!.fechaNacimiento.isEmpty) return null;
+    final fn = DateTime.tryParse(_selectedPaciente!.fechaNacimiento);
+    if (fn == null) return null;
+    return (DateTime.now().difference(fn).inDays / 30.44).floor();
+  }
+
+  /// Encuentra la regla de esquema PAI para el biológico y dosis seleccionados
+  Map<String, dynamic>? _buscarReglaEsquema(_VacunaItem item) {
+    if (item.lote == null) return null;
+    final art = item.lote!['articulo'] ?? {};
+    final idArt = art['id_articulo'] ?? item.lote!['id_articulo'];
+    final nomArt = (art['nombre_articulo'] ?? item.lote!['nombre_articulo'] ?? '').toString().toLowerCase();
+
+    final esquemasVacuna = _esquemasPai.where((e) {
+      if (idArt != null && e['id_articulo'] == idArt) return true;
+      final nomEsq = (e['vacuna']?['nombre_articulo'] ?? '').toString().toLowerCase();
+      if (nomEsq.isEmpty) return false;
+      return nomArt.contains(nomEsq) || nomEsq.contains(nomArt.split(' ')[0]);
+    }).toList();
+
+    if (esquemasVacuna.isEmpty) return null;
+
+    final dl = (item.dosis ?? '').toLowerCase().trim();
+    return esquemasVacuna.firstWhere((e) {
+      final nd = (e['numero_dosis'] ?? '').toString().toLowerCase().trim();
+      return nd == dl || nd.contains(dl) || dl.contains(nd);
+    }, orElse: () => esquemasVacuna.first);
+  }
+
+  /// Retorna la cantidad total de dosis necesarias para el esquema completo de este biológico
+  int _obtenerTotalDosisEsquema(_VacunaItem item) {
+    if (item.lote == null) return 1;
+    final art = item.lote!['articulo'] ?? {};
+    final idArt = art['id_articulo'] ?? item.lote!['id_articulo'];
+    final nomArt = (art['nombre_articulo'] ?? item.lote!['nombre_articulo'] ?? '').toString().toLowerCase();
+
+    final esquemasVacuna = _esquemasPai.where((e) {
+      if (idArt != null && e['id_articulo'] == idArt) return true;
+      final nomEsq = (e['vacuna']?['nombre_articulo'] ?? '').toString().toLowerCase();
+      if (nomEsq.isEmpty) return false;
+      return nomArt.contains(nomEsq) || nomEsq.contains(nomArt.split(' ')[0]);
+    }).toList();
+
+    return esquemasVacuna.isNotEmpty ? esquemasVacuna.length : 1;
+  }
+
+  /// Calcula la fecha sugerida de la próxima cita/aplicación si hay siguiente dosis
+  Map<String, dynamic>? _calcularSiguienteCita(_VacunaItem item) {
+    if (item.lote == null || item.dosis == null) return null;
+    final art = item.lote!['articulo'] ?? {};
+    final idArt = art['id_articulo'] ?? item.lote!['id_articulo'];
+    final nomArt = (art['nombre_articulo'] ?? item.lote!['nombre_articulo'] ?? '').toString().toLowerCase();
+
+    final esquemasVacuna = _esquemasPai.where((e) {
+      if (idArt != null && e['id_articulo'] == idArt) return true;
+      final nomEsq = (e['vacuna']?['nombre_articulo'] ?? '').toString().toLowerCase();
+      if (nomEsq.isEmpty) return false;
+      return nomArt.contains(nomEsq) || nomEsq.contains(nomArt.split(' ')[0]);
+    }).toList();
+
+    if (esquemasVacuna.isEmpty) return null;
+
+    final dl = item.dosis!.toLowerCase().trim();
+    final idxActual = esquemasVacuna.indexWhere((e) {
+      final nd = (e['numero_dosis'] ?? '').toString().toLowerCase().trim();
+      return nd == dl || nd.contains(dl) || dl.contains(nd);
+    });
+
+    if (idxActual >= 0 && idxActual + 1 < esquemasVacuna.length) {
+      final sigRegla = esquemasVacuna[idxActual + 1];
+      final intervalo = sigRegla['intervalo_dias_previo'] as int? ?? 60;
+      final proxFecha = DateTime.now().add(Duration(days: intervalo));
+      final dia = proxFecha.day.toString().padLeft(2, '0');
+      final mes = proxFecha.month.toString().padLeft(2, '0');
+      return {
+        'siguienteDosis': sigRegla['numero_dosis'],
+        'intervaloDias': intervalo,
+        'fechaTexto': '$dia/$mes/${proxFecha.year}',
+        'esUltima': false,
+      };
+    } else {
+      return {
+        'esUltima': true,
+      };
+    }
+  }
+
   // ─── Guardar Vacunación Rápida ────────────────────────────────────────────
   Future<void> _guardarVacunacion() async {
     if (_selectedPaciente == null) return;
-    if (_selectedLoteVacuna == null) {
-      _showError('Seleccione la vacuna o lote a aplicar');
+
+    // Validar que al menos una vacuna esté completa
+    final vacunasValidas = _vacunasAplicar
+        .where((v) => v.lote != null && v.dosis != null && v.via != null && v.sitio != null)
+        .toList();
+
+    if (vacunasValidas.isEmpty) {
+      _showError('Complete al menos una vacuna con lote, dosis, vía y sitio');
       return;
+    }
+
+    // Validar que ningún renglón esté incompleto (parcialmente lleno)
+    for (int i = 0; i < _vacunasAplicar.length; i++) {
+      final v = _vacunasAplicar[i];
+      final camposLlenos = [v.lote, v.dosis, v.via, v.sitio].where((c) => c != null).length;
+      if (camposLlenos > 0 && camposLlenos < 4) {
+        _showError('El renglón ${i + 1} está incompleto. Complete todos sus campos o elimínelo.');
+        return;
+      }
     }
 
     // Validar autorización de usuario si hay jornada vinculada
@@ -276,45 +547,131 @@ class _JornadaDiariaScreenState extends State<JornadaDiariaScreen> {
       return;
     }
 
+    // Validar si el usuario seleccionó una dosis ya registrada previamente en el historial
+    final vacunasDuplicadas = <String>[];
+    for (final v in vacunasValidas) {
+      final prev = _obtenerDosisPrevias(v.lote, renglonActual: v);
+      if (prev.any((p) {
+        final pl = p.toLowerCase().trim();
+        final vl = (v.dosis ?? '').toLowerCase().trim();
+        return pl == vl || pl.contains(vl) || vl.contains(pl);
+      })) {
+        final art = v.lote!['articulo'] ?? {};
+        final n = (art['nombre_articulo'] ?? v.lote!['nombre_articulo'] ?? 'Vacuna').toString();
+        vacunasDuplicadas.add('$n (${v.dosis})');
+      }
+    }
+
+    if (vacunasDuplicadas.isNotEmpty) {
+      final bool? confirmar = await showDialog<bool>(
+        context: context,
+        barrierDismissible: false,
+        builder: (ctx) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: const Row(
+            children: [
+              Icon(Icons.warning_amber_rounded, color: Color(0xFFD97706), size: 26),
+              SizedBox(width: 10),
+              Expanded(
+                child: Text('Posible Dosis Duplicada', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              ),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'El paciente ya tiene registrada(s) en su historial la(s) siguiente(s) dosis:',
+                style: TextStyle(fontSize: 13, color: Color(0xFF334155)),
+              ),
+              const SizedBox(height: 10),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFEF3C7),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: const Color(0xFFFCD34D)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: vacunasDuplicadas.map((d) => Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 2),
+                    child: Text('• $d', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF92400E))),
+                  )).toList(),
+                ),
+              ),
+              const SizedBox(height: 12),
+              const Text(
+                '¿Desea corregir la dosis o registrar el duplicado de todos modos?',
+                style: TextStyle(fontSize: 13, color: Color(0xFF475569)),
+              ),
+            ],
+          ),
+          actions: [
+            OutlinedButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Corregir Dosis'),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFD97706), foregroundColor: Colors.white),
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Registrar de todos modos'),
+            ),
+          ],
+        ),
+      );
+      if (confirmar != true) return;
+    }
+
     final guardiaProv = context.read<GuardiaProvider>();
     final guardia = guardiaProv.guardia;
 
     setState(() => _savingAtencion = true);
 
-    final loteId = _extractLoteId(_selectedLoteVacuna!);
     final double? tempVal = double.tryParse(_tempCtrl.text.trim());
     final double? pesoVal = double.tryParse(_pesoCtrl.text.trim());
     final double? tallaVal = double.tryParse(_tallaCtrl.text.trim());
 
-    final vacunaciones = [
-      {
+    final vacunaciones = vacunasValidas.map((v) {
+      final loteId = _extractLoteId(v.lote!);
+      final regla = _buscarReglaEsquema(v);
+      return {
         'id_lote': loteId,
-        'dosis_aplicada': _dosisAplicada,
-        'via_administracion': _viaAdministracion,
-        'sitio_administracion': _sitioAdministracion,
+        'id_esquema': v.idEsquema ?? regla?['id_esquema'],
+        'dosis_aplicada': v.dosis!,
+        'via_administracion': v.via!,
+        'sitio_administracion': v.sitio!,
         'temperatura': tempVal,
         'peso': pesoVal,
         'talla': tallaVal,
         'modalidad': guardia?.modalidad ?? 'intramural',
-      }
-    ];
+      };
+    }).toList();
 
-    final consumos = <Map<String, dynamic>>[];
-    if (loteId != null) {
-      consumos.add({'id_lote_insumo': loteId, 'cantidad_usada': 1});
+    final Map<dynamic, int> consumosMap = {};
+    for (final v in vacunasValidas) {
+      final loteId = _extractLoteId(v.lote!);
+      if (loteId != null) {
+        consumosMap[loteId] = (consumosMap[loteId] ?? 0) + 1;
+      }
     }
     for (final ins in _insumosUsados) {
       if (ins.lote != null && ins.cantidad > 0) {
         final idIns = _extractLoteId(ins.lote!);
         if (idIns != null) {
-          consumos.add({'id_lote_insumo': idIns, 'cantidad_usada': ins.cantidad});
+          consumosMap[idIns] = (consumosMap[idIns] ?? 0) + ins.cantidad;
         }
       }
     }
+    final consumos = consumosMap.entries
+        .map((e) => {'id_lote_insumo': e.key, 'cantidad_usada': e.value})
+        .toList();
 
     final atencionPayload = {
       'fecha_visita': DateTime.now().toIso8601String().split('T')[0],
-      'diagnostico_general': 'Inmunización preventiva',
+      'diagnostico_general': vacunasValidas.length > 1 ? 'Inmunización preventiva — ${vacunasValidas.length} vacunas' : 'Inmunización preventiva',
       'temperatura_c': tempVal,
       'peso_kg': pesoVal,
       'talla_cm': tallaVal,
@@ -350,14 +707,16 @@ class _JornadaDiariaScreenState extends State<JornadaDiariaScreen> {
       final Paciente pacienteGuardado = _selectedPaciente!;
       await guardiaProv.registrarAtencion();
 
-      // Si hay una jornada activa, actualizar localmente el stock remanente
+      // Actualizar stock remanente local para cada vacuna registrada
       if (_jornadaActiva != null && _jornadaActiva!['stockBloqueado'] != null) {
         final List stList = _jornadaActiva!['stockBloqueado'];
-        for (final st in stList) {
-          final idLoteSt = st['id_lote_insumo'];
-          if (idLoteSt == loteId) {
-            st['cantidad_usada'] = (st['cantidad_usada'] ?? 0) + 1;
-            st['cantidad_remanente'] = ((st['cantidad_remanente'] ?? 1) - 1).clamp(0, 999999);
+        for (final v in vacunasValidas) {
+          final loteId = _extractLoteId(v.lote!);
+          for (final st in stList) {
+            if (st['id_lote_insumo'] == loteId) {
+              st['cantidad_usada'] = (st['cantidad_usada'] ?? 0) + 1;
+              st['cantidad_remanente'] = ((st['cantidad_remanente'] ?? 1) - 1).clamp(0, 999999);
+            }
           }
         }
       }
@@ -369,13 +728,14 @@ class _JornadaDiariaScreenState extends State<JornadaDiariaScreen> {
         _tallaCtrl.clear();
         _tempCtrl.text = '36.5';
         _insumosUsados = [];
+        _vacunasAplicar = [_VacunaItem()];
       });
 
       _searchController.clear();
       _buscarPaciente(explicitQuery: '');
       _searchFocusNode.requestFocus();
 
-      _showSuccessWithCarnet(pacienteGuardado);
+      _showSuccessWithCarnet(pacienteGuardado, vacunasValidas.length);
       _mostrarDialogoCarnetGenerado(pacienteGuardado);
     } else {
       _showError(res['message'] ?? 'Error al registrar vacunación');
@@ -397,15 +757,18 @@ class _JornadaDiariaScreenState extends State<JornadaDiariaScreen> {
     return 'Personal de Inmunización CDI';
   }
 
-  void _showSuccessWithCarnet(Paciente paciente) {
+  void _showSuccessWithCarnet(Paciente paciente, [int numVacunas = 1]) {
     final vacunador = _getVacunadorActual();
+    final msg = numVacunas > 1
+        ? '$numVacunas vacunas de ${paciente.nombreCompleto} registradas exitosamente'
+        : 'Vacunación de ${paciente.nombreCompleto} registrada exitosamente';
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Row(
           children: [
             const Icon(Icons.check_circle_rounded, color: Colors.white, size: 20),
             const SizedBox(width: 10),
-            Expanded(child: Text('Vacunación de ${paciente.nombreCompleto} registrada exitosamente')),
+            Expanded(child: Text(msg)),
           ],
         ),
         action: SnackBarAction(
@@ -978,15 +1341,7 @@ class _JornadaDiariaScreenState extends State<JornadaDiariaScreen> {
         return 0;
       });
 
-      // Si el lote actual no es de la jornada y hay lotes de la jornada, preseleccionar el primero
-      final idSel = (_extractLoteId(_selectedLoteVacuna ?? {}) as num?)?.toInt();
-      if (idSel == null || !idsBloqueados.contains(idSel)) {
-        final primerLoteJornada = _lotesVacunas.firstWhere(
-          (l) => idsBloqueados.contains((_extractLoteId(l) as num?)?.toInt()),
-          orElse: () => _selectedLoteVacuna ?? _lotesVacunas.first,
-        );
-        _selectedLoteVacuna = primerLoteJornada;
-      }
+      // Ordenamiento completado sin forzar selección automática
     });
   }
 
@@ -1496,6 +1851,7 @@ class _JornadaDiariaScreenState extends State<JornadaDiariaScreen> {
                 _tempCtrl.text = '36.5';
                 _pesoCtrl.clear();
                 _tallaCtrl.clear();
+                _vacunasAplicar = [_VacunaItem()];
               });
             },
           ),
@@ -1642,25 +1998,7 @@ class _JornadaDiariaScreenState extends State<JornadaDiariaScreen> {
                         icon: const Icon(Icons.qr_code_2_rounded, size: 15),
                         label: const Text('Ver Carnet de Vacunación (QR)', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
                       ),
-                      OutlinedButton.icon(
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: const Color(0xFF0284C7),
-                          side: const BorderSide(color: Color(0xFFBAE6FD)),
-                          backgroundColor: const Color(0xFFF0F9FF),
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                        ),
-                        onPressed: () {
-                          ConstanciaAtencionDialog.show(
-                            context,
-                            paciente: p,
-                            profesionalNombre: _getVacunadorActual(),
-                            motivoAtencion: 'Inmunización / Atención Sanitaria Preventiva',
-                          );
-                        },
-                        icon: const Icon(Icons.verified_rounded, size: 15),
-                        label: const Text('Constancia Oficial de Atención (QR)', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
-                      ),
+                      // [CONSTANCIA OCULTA] OutlinedButton 'Constancia Oficial de Atención (QR)' removido
                     ],
                   ),
                 ],
@@ -1668,7 +2006,7 @@ class _JornadaDiariaScreenState extends State<JornadaDiariaScreen> {
             ),
             const SizedBox(height: 12),
 
-            // Card 1: Biológico y Aplicación
+            // Card 1: Vacunas a Aplicar (hasta 6 en una visita)
             Card(
               elevation: 0,
               shape: RoundedRectangleBorder(
@@ -1680,166 +2018,72 @@ class _JornadaDiariaScreenState extends State<JornadaDiariaScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Row(
+                    // Encabezado de la sección
+                    Row(
                       children: [
-                        Icon(Icons.vaccines_rounded, color: _primary, size: 20),
-                        SizedBox(width: 8),
-                        Text(
-                          'Vacuna y Dosis',
-                          style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFF1E293B)),
+                        const Icon(Icons.vaccines_rounded, color: _primary, size: 20),
+                        const SizedBox(width: 8),
+                        const Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Vacunas a Aplicar',
+                                style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFF1E293B)),
+                              ),
+                              Text(
+                                'Puede registrar hasta 6 vacunas en una sola visita',
+                                style: TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                              ),
+                            ],
+                          ),
                         ),
+                        if (_vacunasAplicar.length < _maxVacunasPorVisita)
+                          ElevatedButton.icon(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: _primary,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                            ),
+                            icon: const Icon(Icons.add_rounded, size: 16),
+                            label: const Text('Agregar Vacuna', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                            onPressed: () {
+                              setState(() {
+                                _vacunasAplicar.add(_VacunaItem());
+                              });
+                            },
+                          ),
                       ],
                     ),
                     const Divider(height: 20),
-                    // Selector de Lote / Vacuna
-                    DropdownButtonFormField<Map<String, dynamic>>(
-                      value: _selectedLoteVacuna,
-                      isExpanded: true,
-                      decoration: InputDecoration(
-                        labelText: 'Biológico / Lote Disponible *',
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                      ),
-                      items: _lotesVacunas.map((l) {
-                        final art = l['articulo'] ?? {};
-                        final nombre = art['nombre_articulo'] ?? l['nombre_articulo'] ?? 'Biológico';
-                        final numLote = l['numero_lote'] ?? l['lote'] ?? 'S/L';
-                        final stock = l['stock_actual'] ?? l['stock'] ?? 0;
 
-                        final stBloq = _jornadaActiva?['stockBloqueado'] as List?;
-                        final matchSt = stBloq?.firstWhere(
-                          (s) => s['id_lote_insumo'] == _extractLoteId(l),
-                          orElse: () => null,
-                        );
-                        final String stockTexto = matchSt != null
-                            ? '⭐ JORNADA: ${matchSt['cantidad_remanente'] ?? 0} disp.'
-                            : 'Stock: $stock';
+                    // Lista de renglones de vacunas
+                    ...List.generate(_vacunasAplicar.length, (idx) {
+                      final item = _vacunasAplicar[idx];
+                      return _buildVacunaRenglon(idx, item, isMobile);
+                    }),
 
-                        return DropdownMenuItem<Map<String, dynamic>>(
-                          value: l,
-                          child: Text(
-                            '$nombre — Lote: $numLote ($stockTexto)',
-                            style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: matchSt != null ? FontWeight.bold : FontWeight.normal,
-                              color: matchSt != null ? const Color(0xFF1565C0) : null,
+                    if (_vacunasAplicar.length >= _maxVacunasPorVisita)
+                      Container(
+                        margin: const EdgeInsets.only(top: 8),
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: Colors.amber.shade50,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: Colors.amber.shade300),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(Icons.info_outline_rounded, color: Colors.amber.shade800, size: 16),
+                            const SizedBox(width: 8),
+                            Text(
+                              'Límite máximo de $_maxVacunasPorVisita vacunas por visita alcanzado.',
+                              style: TextStyle(fontSize: 12, color: Colors.amber.shade900, fontWeight: FontWeight.w600),
                             ),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        );
-                      }).toList(),
-                      onChanged: (val) {
-                        setState(() {
-                          _selectedLoteVacuna = val;
-                          // Autosugestión de vía y sitio según vacuna
-                          if (val != null) {
-                            final art = val['articulo'] ?? {};
-                            final nombre = (art['nombre_articulo'] ?? val['nombre_articulo'] ?? '')
-                                .toString().toLowerCase();
-                            if (nombre.contains('polio') || nombre.contains('oral') || nombre.contains('vop') || nombre.contains('vpv')) {
-                              _viaAdministracion = 'Oral';
-                              _sitioAdministracion = 'Oral';
-                            } else if (nombre.contains('bcg') || nombre.contains('intrader')) {
-                              _viaAdministracion = 'Intradérmica';
-                              _sitioAdministracion = 'Brazo derecho';
-                            } else if (nombre.contains('srp') || nombre.contains('sarampion') || nombre.contains('mmr') || nombre.contains('varicela')) {
-                              _viaAdministracion = 'Subcutánea';
-                              _sitioAdministracion = 'Brazo izquierdo';
-                            } else if (nombre.contains('penta') || nombre.contains('hepat') || nombre.contains('meningoc') || nombre.contains('neumococ') || nombre.contains('influenza') || nombre.contains('covid') || nombre.contains('toxoide')) {
-                              _viaAdministracion = 'Intramuscular';
-                              final esPed = _isPediatrico(_selectedPaciente);
-                              _sitioAdministracion = esPed ? 'Muslo izquierdo' : 'Brazo izquierdo';
-                            } else {
-                              _viaAdministracion = 'Intramuscular';
-                              _sitioAdministracion = 'Brazo izquierdo';
-                            }
-                          }
-                        });
-                      },
-                    ),
-                    const SizedBox(height: 14),
-
-                    // Dosis Aplicada
-                    const Text('Dosis / Esquema:', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                    const SizedBox(height: 8),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: _dosisOpciones.map((d) {
-                        final isSel = _dosisAplicada == d;
-                        return ChoiceChip(
-                          label: Text(d),
-                          selected: isSel,
-                          onSelected: (sel) {
-                            if (sel) setState(() => _dosisAplicada = d);
-                          },
-                          selectedColor: _primary,
-                          labelStyle: TextStyle(
-                            color: isSel ? Colors.white : const Color(0xFF334155),
-                            fontWeight: isSel ? FontWeight.bold : FontWeight.normal,
-                            fontSize: 12,
-                          ),
-                        );
-                      }).toList(),
-                    ),
-                    const SizedBox(height: 14),
-
-                    // Vía de Administración y Sitio Anatómico
-                    isMobile
-                        ? Column(
-                            children: [
-                              DropdownButtonFormField<String>(
-                                value: _viaAdministracion,
-                                decoration: InputDecoration(
-                                  labelText: 'Vía de Administración',
-                                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                                ),
-                                items: _viasOpciones.map((v) => DropdownMenuItem(value: v, child: Text(v, style: const TextStyle(fontSize: 12)))).toList(),
-                                onChanged: (v) => setState(() => _viaAdministracion = v ?? 'Intramuscular'),
-                              ),
-                              const SizedBox(height: 10),
-                              DropdownButtonFormField<String>(
-                                value: _sitioAdministracion,
-                                decoration: InputDecoration(
-                                  labelText: 'Sitio Anatómico',
-                                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                                ),
-                                items: _sitiosOpciones.map((s) => DropdownMenuItem(value: s, child: Text(s, style: const TextStyle(fontSize: 12)))).toList(),
-                                onChanged: (s) => setState(() => _sitioAdministracion = s ?? 'Brazo izquierdo'),
-                              ),
-                            ],
-                          )
-                        : Row(
-                            children: [
-                              Expanded(
-                                child: DropdownButtonFormField<String>(
-                                  value: _viaAdministracion,
-                                  decoration: InputDecoration(
-                                    labelText: 'Vía de Administración',
-                                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                                  ),
-                                  items: _viasOpciones.map((v) => DropdownMenuItem(value: v, child: Text(v, style: const TextStyle(fontSize: 12)))).toList(),
-                                  onChanged: (v) => setState(() => _viaAdministracion = v ?? 'Intramuscular'),
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: DropdownButtonFormField<String>(
-                                  value: _sitioAdministracion,
-                                  decoration: InputDecoration(
-                                    labelText: 'Sitio Anatómico',
-                                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                                  ),
-                                  items: _sitiosOpciones.map((s) => DropdownMenuItem(value: s, child: Text(s, style: const TextStyle(fontSize: 12)))).toList(),
-                                  onChanged: (s) => setState(() => _sitioAdministracion = s ?? 'Brazo izquierdo'),
-                                ),
-                              ),
-                            ],
-                          ),
+                          ],
+                        ),
+                      ),
                   ],
                 ),
               ),
@@ -2016,6 +2260,10 @@ class _JornadaDiariaScreenState extends State<JornadaDiariaScreen> {
                   ],
                 ),
               ),
+            const SizedBox(height: 16),
+
+            // Card 3: Insumos Médicos Descartables Utilizados
+            _buildInsumosCard(isMobile),
             const SizedBox(height: 20),
 
             // Botón de Confirmación Principal
@@ -2037,7 +2285,11 @@ class _JornadaDiariaScreenState extends State<JornadaDiariaScreen> {
                       )
                     : const Icon(Icons.check_circle_outline_rounded, size: 22),
                 label: Text(
-                  _savingAtencion ? 'REGISTRANDO...' : 'REGISTRAR VACUNACIÓN',
+                  _savingAtencion
+                      ? 'REGISTRANDO...'
+                      : _vacunasAplicar.where((v) => v.lote != null).length > 1
+                          ? 'REGISTRAR ${_vacunasAplicar.where((v) => v.lote != null).length} VACUNAS'
+                          : 'REGISTRAR VACUNACIÓN',
                   style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, letterSpacing: 0.5),
                 ),
                 onPressed: _savingAtencion ? null : _guardarVacunacion,
@@ -2046,6 +2298,616 @@ class _JornadaDiariaScreenState extends State<JornadaDiariaScreen> {
             const SizedBox(height: 24),
           ],
         ),
+      ),
+    );
+  }
+
+  // ─── Card 3: Insumos Médicos Descartables Utilizados ─────────────────────────
+  Widget _buildInsumosCard(bool isMobile) {
+    return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: const BorderSide(color: Color(0xFFE2E8F0)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.medical_services_outlined, color: _primary, size: 20),
+                const SizedBox(width: 8),
+                const Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Insumos Médicos Descartables Utilizados',
+                        style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFF1E293B)),
+                      ),
+                      Text(
+                        'Jeringas descartables, agujas, torundas de algodón o guantes utilizados',
+                        style: TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                      ),
+                    ],
+                  ),
+                ),
+                ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: _primary.withOpacity(0.1),
+                    foregroundColor: _primary,
+                    elevation: 0,
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  ),
+                  onPressed: () {
+                    setState(() {
+                      _insumosUsados.add(_InsumoItem());
+                    });
+                  },
+                  icon: const Icon(Icons.add_circle_outline_rounded, size: 16),
+                  label: const Text('+ Agregar Insumo', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            if (_insumosUsados.isEmpty)
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF8FAFC),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.inventory_2_outlined, size: 20, color: Colors.grey.shade400),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        'No se han registrado insumos adicionales (opcional). Si utilizó jeringas descartables, agujas o algodón, haga clic en "+ Agregar Insumo" para descargarlos del inventario.',
+                        style: TextStyle(fontSize: 12, color: Colors.grey.shade600, fontStyle: FontStyle.italic),
+                      ),
+                    ),
+                  ],
+                ),
+              )
+            else
+              ...List.generate(_insumosUsados.length, (idx) {
+                final item = _insumosUsados[idx];
+                final int stockMax = (item.lote?['stock_actual'] is num) ? (item.lote!['stock_actual'] as num).toInt() : 999;
+                return Container(
+                  margin: const EdgeInsets.only(bottom: 8),
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF8FAFC),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: const Color(0xFFCBD5E1)),
+                  ),
+                  child: isMobile
+                      ? Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            DropdownButtonFormField<Map<String, dynamic>>(
+                              value: item.lote,
+                              isExpanded: true,
+                              hint: const Text('Seleccionar insumo / lote disponible', style: TextStyle(fontSize: 12)),
+                              items: _lotesInsumos.map((l) {
+                                final art = l['articulo'] ?? {};
+                                final nom = art['nombre_articulo'] ?? l['nombre_articulo'] ?? 'Insumo';
+                                final lot = l['numero_lote'] ?? '';
+                                final stock = l['stock_actual'] ?? 0;
+                                return DropdownMenuItem(
+                                  value: l,
+                                  child: Text(
+                                    '$nom ($lot) — Disp: $stock',
+                                    style: const TextStyle(fontSize: 12),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                );
+                              }).toList(),
+                              onChanged: (val) {
+                                setState(() {
+                                  item.lote = val;
+                                  final s = (val?['stock_actual'] is num) ? (val!['stock_actual'] as num).toInt() : 999;
+                                  if (item.cantidad > s && s > 0) item.cantidad = s;
+                                });
+                              },
+                              decoration: InputDecoration(
+                                isDense: true,
+                                contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                                filled: true,
+                                fillColor: Colors.white,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Row(
+                              children: [
+                                const Text('Cantidad:', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF334155))),
+                                const SizedBox(width: 8),
+                                IconButton(
+                                  icon: const Icon(Icons.remove_circle_outline, size: 20),
+                                  onPressed: item.cantidad > 1
+                                      ? () => setState(() => item.cantidad--)
+                                      : null,
+                                ),
+                                Text('${item.cantidad}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                                IconButton(
+                                  icon: const Icon(Icons.add_circle_outline, size: 20),
+                                  onPressed: item.cantidad < stockMax
+                                      ? () => setState(() => item.cantidad++)
+                                      : null,
+                                ),
+                                const Spacer(),
+                                IconButton(
+                                  tooltip: 'Eliminar insumo',
+                                  icon: const Icon(Icons.delete_outline_rounded, color: Colors.redAccent, size: 22),
+                                  onPressed: () {
+                                    setState(() {
+                                      _insumosUsados.removeAt(idx);
+                                    });
+                                  },
+                                ),
+                              ],
+                            ),
+                          ],
+                        )
+                      : Row(
+                          children: [
+                            Expanded(
+                              flex: 4,
+                              child: DropdownButtonFormField<Map<String, dynamic>>(
+                                value: item.lote,
+                                isExpanded: true,
+                                hint: const Text('Seleccionar insumo / lote disponible', style: TextStyle(fontSize: 12)),
+                                items: _lotesInsumos.map((l) {
+                                  final art = l['articulo'] ?? {};
+                                  final nom = art['nombre_articulo'] ?? l['nombre_articulo'] ?? 'Insumo';
+                                  final lot = l['numero_lote'] ?? '';
+                                  final stock = l['stock_actual'] ?? 0;
+                                  return DropdownMenuItem(
+                                    value: l,
+                                    child: Text(
+                                      '$nom ($lot) — Disp: $stock',
+                                      style: const TextStyle(fontSize: 12),
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  );
+                                }).toList(),
+                                onChanged: (val) {
+                                  setState(() {
+                                    item.lote = val;
+                                    final s = (val?['stock_actual'] is num) ? (val!['stock_actual'] as num).toInt() : 999;
+                                    if (item.cantidad > s && s > 0) item.cantidad = s;
+                                  });
+                                },
+                                decoration: InputDecoration(
+                                  isDense: true,
+                                  contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                                  filled: true,
+                                  fillColor: Colors.white,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            IconButton(
+                              icon: const Icon(Icons.remove_circle_outline, size: 20, color: Color(0xFF64748B)),
+                              onPressed: item.cantidad > 1
+                                  ? () => setState(() => item.cantidad--)
+                                  : null,
+                            ),
+                            SizedBox(
+                              width: 60,
+                              child: TextFormField(
+                                key: ValueKey('insumo_${idx}_${item.cantidad}'),
+                                initialValue: item.cantidad.toString(),
+                                keyboardType: TextInputType.number,
+                                textAlign: TextAlign.center,
+                                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                                decoration: InputDecoration(
+                                  isDense: true,
+                                  contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 10),
+                                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                                  filled: true,
+                                  fillColor: Colors.white,
+                                ),
+                                onChanged: (val) {
+                                  final parsed = int.tryParse(val) ?? 1;
+                                  item.cantidad = parsed > stockMax ? stockMax : (parsed < 1 ? 1 : parsed);
+                                },
+                              ),
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.add_circle_outline, size: 20, color: Color(0xFF64748B)),
+                              onPressed: item.cantidad < stockMax
+                                  ? () => setState(() => item.cantidad++)
+                                  : null,
+                            ),
+                            const SizedBox(width: 8),
+                            IconButton(
+                              tooltip: 'Eliminar insumo',
+                              icon: const Icon(Icons.delete_outline_rounded, color: Colors.redAccent, size: 20),
+                              onPressed: () {
+                                setState(() {
+                                  _insumosUsados.removeAt(idx);
+                                });
+                              },
+                            ),
+                          ],
+                        ),
+                );
+              }),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ─── Renglón individual de vacuna (dentro del listado multi-vacuna) ────────
+  Widget _buildVacunaRenglon(int idx, _VacunaItem item, bool isMobile) {
+    final esUnico = _vacunasAplicar.length == 1;
+    final numero = idx + 1;
+    final dosisPrevias = _obtenerDosisPrevias(item.lote, renglonActual: item);
+
+    void autoSugerirViaSitio(_VacunaItem v) {
+      if (v.lote == null) return;
+      final art = v.lote!['articulo'] ?? {};
+      final nombre = (art['nombre_articulo'] ?? v.lote!['nombre_articulo'] ?? '').toString().toLowerCase();
+      if (nombre.contains('polio') || nombre.contains('oral') || nombre.contains('vop')) {
+        v.via = 'Oral';
+        v.sitio = 'Oral';
+      } else if (nombre.contains('bcg') || nombre.contains('intrader')) {
+        v.via = 'Intradérmica';
+        v.sitio = 'Brazo derecho';
+      } else if (nombre.contains('srp') || nombre.contains('sarampion') || nombre.contains('mmr') || nombre.contains('varicela')) {
+        v.via = 'Subcutánea';
+        v.sitio = 'Brazo izquierdo';
+      } else {
+        v.via = 'Intramuscular';
+        v.sitio = _isPediatrico(_selectedPaciente) ? 'Muslo izquierdo' : 'Brazo izquierdo';
+      }
+    }
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 14),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: item.lote != null ? const Color(0xFF93C5FD) : const Color(0xFFCBD5E1),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                decoration: BoxDecoration(
+                  color: _primary,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Text(
+                  'Vacuna #$numero',
+                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11),
+                ),
+              ),
+              const Spacer(),
+              if (!esUnico)
+                IconButton(
+                  icon: const Icon(Icons.remove_circle_outline_rounded, color: Colors.red, size: 20),
+                  tooltip: 'Eliminar esta vacuna',
+                  onPressed: () => setState(() => _vacunasAplicar.removeAt(idx)),
+                ),
+            ],
+          ),
+          const SizedBox(height: 10),
+
+          // Selector de Biológico / Lote
+          DropdownButtonFormField<Map<String, dynamic>>(
+            value: item.lote,
+            isExpanded: true,
+            hint: const Text('Seleccionar Biológico / Lote...', style: TextStyle(fontSize: 12)),
+            decoration: InputDecoration(
+              labelText: 'Biológico / Lote *',
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            ),
+            items: _lotesVacunas.map((l) {
+              final art = l['articulo'] ?? {};
+              final nombre = art['nombre_articulo'] ?? l['nombre_articulo'] ?? 'Biológico';
+              final numLote = l['numero_lote'] ?? l['lote'] ?? 'S/L';
+              final stock = l['stock_actual'] ?? l['stock'] ?? 0;
+              final stBloq = _jornadaActiva?['stockBloqueado'] as List?;
+              final matchSt = stBloq?.firstWhere(
+                (s) => s['id_lote_insumo'] == _extractLoteId(l),
+                orElse: () => null,
+              );
+              final stockTexto = matchSt != null
+                  ? '⭐ JORNADA: ${matchSt['cantidad_remanente'] ?? 0} disp.'
+                  : 'Stock: $stock';
+              return DropdownMenuItem<Map<String, dynamic>>(
+                value: l,
+                child: Text(
+                  '$nombre — Lote: $numLote ($stockTexto)',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: matchSt != null ? FontWeight.bold : FontWeight.normal,
+                    color: matchSt != null ? const Color(0xFF1565C0) : null,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              );
+            }).toList(),
+            onChanged: (val) {
+              setState(() {
+                item.lote = val;
+                autoSugerirViaSitio(item);
+                _autoSugerirDosis(item);
+              });
+            },
+          ),
+          if (item.lote != null) ...[
+            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: dosisPrevias.isNotEmpty ? const Color(0xFFEFF6FF) : const Color(0xFFF0FDF4),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: dosisPrevias.isNotEmpty ? const Color(0xFF93C5FD) : const Color(0xFFBBF7D0),
+                ),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    dosisPrevias.isNotEmpty ? Icons.history_edu_rounded : Icons.fiber_new_rounded,
+                    size: 16,
+                    color: dosisPrevias.isNotEmpty ? const Color(0xFF1D4ED8) : const Color(0xFF16A34A),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: dosisPrevias.isNotEmpty
+                        ? Text.rich(
+                            TextSpan(
+                              children: [
+                                const TextSpan(
+                                  text: 'Dosis previas registradas: ',
+                                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Color(0xFF1E3A8A)),
+                                ),
+                                TextSpan(
+                                  text: '${dosisPrevias.join(", ")}  ➔  ',
+                                  style: const TextStyle(fontSize: 11, color: Color(0xFF1E40AF)),
+                                ),
+                                TextSpan(
+                                  text: 'Asignada: ${item.dosis ?? "Por asignar"}',
+                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Color(0xFF15803D)),
+                                ),
+                              ],
+                            ),
+                          )
+                        : Text(
+                            'Sin dosis previas registradas de esta vacuna. Se asignó automáticamente: ${item.dosis ?? "1ra Dosis"}.',
+                            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF166534)),
+                          ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+          const SizedBox(height: 10),
+
+          // Dosis (chips)
+          const Text('Dosis / Esquema:', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF475569))),
+          const SizedBox(height: 6),
+          Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            children: _dosisOpciones.map((d) {
+              final isSel = item.dosis == d;
+              final yaAplicada = dosisPrevias.any((dp) {
+                final dpl = dp.toLowerCase().trim();
+                final dl = d.toLowerCase().trim();
+                return dpl == dl || dpl.contains(dl) || dl.contains(dpl);
+              });
+              return ChoiceChip(
+                avatar: yaAplicada
+                    ? const Icon(Icons.check_circle_outline, size: 14, color: Color(0xFF047857))
+                    : null,
+                label: Text(
+                  yaAplicada ? '$d (Ya aplicada)' : d,
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: isSel ? FontWeight.bold : FontWeight.normal,
+                    color: isSel
+                        ? Colors.white
+                        : (yaAplicada ? const Color(0xFF047857) : const Color(0xFF334155)),
+                  ),
+                ),
+                selected: isSel,
+                onSelected: (sel) {
+                  if (sel) {
+                    if (yaAplicada) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('⚠️ Nota: El paciente ya tiene registrada la "$d" de este biológico.'),
+                          backgroundColor: const Color(0xFFD97706),
+                          duration: const Duration(seconds: 3),
+                        ),
+                      );
+                    }
+                    setState(() => item.dosis = d);
+                  }
+                },
+                selectedColor: yaAplicada ? const Color(0xFFD97706) : _primary,
+                backgroundColor: yaAplicada ? const Color(0xFFECFDF5) : null,
+              );
+            }).toList(),
+          ),
+          // Información biomédica del Esquema PAI para esta vacuna y dosis
+          if (item.lote != null && item.dosis != null) ...[
+            Builder(builder: (context) {
+              final regla = _buscarReglaEsquema(item);
+              if (regla != null) {
+                item.idEsquema = regla['id_esquema'];
+              }
+              final totalDosis = _obtenerTotalDosisEsquema(item);
+              final sigCita = _calcularSiguienteCita(item);
+              final edadMin = regla?['edad_minima_meses'] as int?;
+              final edadMesesPac = _pacienteEdadEnMeses();
+              final bool alertaEdad = (edadMin != null && edadMesesPac != null && edadMesesPac < edadMin);
+
+              String edadTextoMin = 'Al nacer (0 meses)';
+              if (edadMin != null && edadMin > 0) {
+                if (edadMin < 12) {
+                  edadTextoMin = '$edadMin meses';
+                } else {
+                  final a = edadMin ~/ 12;
+                  final r = edadMin % 12;
+                  edadTextoMin = r == 0 ? '$a año${a > 1 ? "s" : ""}' : '$a año${a > 1 ? "s" : ""} $r m';
+                }
+              }
+
+              return Container(
+                margin: const EdgeInsets.only(top: 8),
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: alertaEdad ? const Color(0xFFFEF2F2) : const Color(0xFFF0FDF4),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                    color: alertaEdad ? const Color(0xFFFCA5A5) : const Color(0xFF86EFAC),
+                  ),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(
+                          alertaEdad ? Icons.warning_amber_rounded : Icons.verified_user_rounded,
+                          size: 16,
+                          color: alertaEdad ? const Color(0xFFDC2626) : const Color(0xFF16A34A),
+                        ),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            'Esquema PAI: $totalDosis dosis requeridas en total',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              color: alertaEdad ? const Color(0xFF991B1B) : const Color(0xFF166534),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            '• Edad mínima recomendada: $edadTextoMin' +
+                                (alertaEdad ? ' (⚠️ El paciente tiene $edadMesesPac meses)' : ''),
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: alertaEdad ? const Color(0xFFB91C1C) : const Color(0xFF1E293B),
+                              fontWeight: alertaEdad ? FontWeight.bold : FontWeight.normal,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 3),
+                    if (sigCita != null)
+                      Text(
+                        sigCita['esUltima'] == true
+                            ? '• Próxima fecha: No requerida (¡Esta dosis completa el esquema PAI de este biológico!)'
+                            : '• Próxima fecha sugerida: ${sigCita['fechaTexto']} (Dosis: ${sigCita['siguienteDosis']}, en ${sigCita['intervaloDias']} días)',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: sigCita['esUltima'] == true ? const Color(0xFF15803D) : const Color(0xFF7C3AED),
+                        ),
+                      ),
+                  ],
+                ),
+              );
+            }),
+          ],
+          const SizedBox(height: 10),
+
+          // Vía y Sitio
+          isMobile
+              ? Column(
+                  children: [
+                    DropdownButtonFormField<String>(
+                      value: item.via,
+                      hint: const Text('Vía...', style: TextStyle(fontSize: 12)),
+                      isExpanded: true,
+                      decoration: InputDecoration(
+                        labelText: 'Vía de Administración *',
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      ),
+                      items: _viasOpciones.map((v) => DropdownMenuItem(value: v, child: Text(v, style: const TextStyle(fontSize: 12)))).toList(),
+                      onChanged: (v) => setState(() => item.via = v),
+                    ),
+                    const SizedBox(height: 8),
+                    DropdownButtonFormField<String>(
+                      value: item.sitio,
+                      hint: const Text('Sitio...', style: TextStyle(fontSize: 12)),
+                      isExpanded: true,
+                      decoration: InputDecoration(
+                        labelText: 'Sitio Anatómico *',
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      ),
+                      items: _sitiosOpciones.map((s) => DropdownMenuItem(value: s, child: Text(s, style: const TextStyle(fontSize: 12)))).toList(),
+                      onChanged: (s) => setState(() => item.sitio = s),
+                    ),
+                  ],
+                )
+              : Row(
+                  children: [
+                    Expanded(
+                      child: DropdownButtonFormField<String>(
+                        value: item.via,
+                        hint: const Text('Vía de Administración...', style: TextStyle(fontSize: 12)),
+                        isExpanded: true,
+                        decoration: InputDecoration(
+                          labelText: 'Vía de Administración *',
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        ),
+                        items: _viasOpciones.map((v) => DropdownMenuItem(value: v, child: Text(v, style: const TextStyle(fontSize: 12)))).toList(),
+                        onChanged: (v) => setState(() => item.via = v),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: DropdownButtonFormField<String>(
+                        value: item.sitio,
+                        hint: const Text('Sitio Anatómico...', style: TextStyle(fontSize: 12)),
+                        isExpanded: true,
+                        decoration: InputDecoration(
+                          labelText: 'Sitio Anatómico *',
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        ),
+                        items: _sitiosOpciones.map((s) => DropdownMenuItem(value: s, child: Text(s, style: const TextStyle(fontSize: 12)))).toList(),
+                        onChanged: (s) => setState(() => item.sitio = s),
+                      ),
+                    ),
+                  ],
+                ),
+        ],
       ),
     );
   }

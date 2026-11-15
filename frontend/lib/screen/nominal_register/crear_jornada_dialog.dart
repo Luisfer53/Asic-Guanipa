@@ -93,6 +93,7 @@ class _CrearJornadaDialogState extends State<CrearJornadaDialog> {
   final _descripcionCtrl = TextEditingController();
 
   DateTime _fecha = DateTime.now();
+  DateTime? _fechaFin;
   String _centroSalud = 'CDI Pedro Urbina';
   int _idCentroOrganizador = 1;
 
@@ -153,7 +154,7 @@ class _CrearJornadaDialogState extends State<CrearJornadaDialog> {
               final stockAct = (l['stock_actual'] ?? 0) as int;
               final stockRes = (l['stock_reservado'] ?? 0) as int;
               final stockLibre = stockAct - stockRes;
-              return exp != null && exp.isAfter(today) && stockLibre > 0;
+              return (exp == null || exp.isAfter(today)) && stockLibre > 0;
             })
             .map((l) => Map<String, dynamic>.from(l))
             .toList();
@@ -177,20 +178,7 @@ class _CrearJornadaDialogState extends State<CrearJornadaDialog> {
       if (res['success'] == true) {
         final List data = res['data'] ?? [];
         _personalDisponible = data.map((e) => Map<String, dynamic>.from(e)).toList();
-
-        final auth = Provider.of<AuthProvider>(context, listen: false);
-        final currentUsername = auth.getCurrentUser()?.username?.toLowerCase() ?? '';
-
-        final currentUserObj = _personalDisponible.firstWhere(
-          (u) => (u['username'] ?? '').toString().toLowerCase() == currentUsername,
-          orElse: () => _personalDisponible.isNotEmpty ? _personalDisponible.first : {},
-        );
-
-        if (currentUserObj.isNotEmpty) {
-          _selectedResponsable = currentUserObj;
-          _responsableCtrl.text = currentUserObj['username'] ?? '';
-          _selectedParticipantesUsernames.add(currentUserObj['username'] ?? '');
-        }
+        _selectedResponsable = null;
       }
     } catch (_) {}
     if (mounted) setState(() => _loadingPersonal = false);
@@ -199,8 +187,18 @@ class _CrearJornadaDialogState extends State<CrearJornadaDialog> {
   Future<void> _guardar() async {
     if (!_formKey.currentState!.validate()) return;
 
+    if (_personalDisponible.isNotEmpty && _selectedResponsable == null) {
+      _showToast('Por favor seleccione el responsable de la jornada', isError: true);
+      return;
+    }
+
     if (_modalidad == 'extramural' && _sectorCtrl.text.trim().isEmpty) {
       _showToast('Por favor indique el sector o comunidad de la jornada extramural', isError: true);
+      return;
+    }
+
+    if (_itemsBloqueo.any((it) => it.lote == null)) {
+      _showToast('Por favor seleccione el lote/insumo en todos los renglones añadidos', isError: true);
       return;
     }
 
@@ -234,6 +232,10 @@ class _CrearJornadaDialogState extends State<CrearJornadaDialog> {
         nombreOperativo: _nombreCtrl.text.trim(),
         modalidad: _modalidad,
         fechaOperativo: DateFormat('yyyy-MM-dd').format(_fecha),
+        fechaInicio: DateFormat('yyyy-MM-dd').format(_fecha),
+        fechaFin: _fechaFin != null
+            ? DateFormat('yyyy-MM-dd').format(_fechaFin!)
+            : DateFormat('yyyy-MM-dd').format(_fecha),
         idCentroOrganizador: _idCentroOrganizador,
         sectorComunidad: _modalidad == 'extramural' ? _sectorCtrl.text.trim() : null,
         responsable: _responsableCtrl.text.trim(),
@@ -376,40 +378,68 @@ class _CrearJornadaDialogState extends State<CrearJornadaDialog> {
                       ),
                       const SizedBox(height: 20),
 
-                      // Datos Generales
+                      // Datos Generales: Nombre de la jornada
+                      TextFormField(
+                        controller: _nombreCtrl,
+                        decoration: InputDecoration(
+                          labelText: 'Nombre de la Jornada *',
+                          hintText: 'Ej. Campaña Pentavalente y Polio - Sector Casco Viejo',
+                          prefixIcon: const Icon(Icons.campaign_rounded, color: _primary),
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                        ),
+                        validator: (v) => (v == null || v.trim().isEmpty) ? 'Requerido' : null,
+                      ),
+                      const SizedBox(height: 14),
+
+                      // Rango de Fechas: Inicio y Fin (Cierre)
                       Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          // Nombre de la jornada
+                          // Fecha de Inicio
                           Expanded(
-                            flex: 3,
-                            child: TextFormField(
-                              controller: _nombreCtrl,
-                              decoration: InputDecoration(
-                                labelText: 'Nombre de la Jornada *',
-                                hintText: 'Ej. Campaña Pentavalente y Polio - Sector Casco Viejo',
-                                prefixIcon: const Icon(Icons.campaign_rounded, color: _primary),
-                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                              ),
-                              validator: (v) => (v == null || v.trim().isEmpty) ? 'Requerido' : null,
-                            ),
-                          ),
-                          const SizedBox(width: 14),
-                          // Selector de Fecha
-                          Expanded(
-                            flex: 2,
                             child: InkWell(
                               onTap: _pickFecha,
                               borderRadius: BorderRadius.circular(10),
                               child: InputDecorator(
                                 decoration: InputDecoration(
-                                  labelText: 'Fecha de la Jornada *',
-                                  prefixIcon: const Icon(Icons.calendar_today_rounded, color: _primary),
+                                  labelText: 'Fecha de Inicio *',
+                                  prefixIcon: const Icon(Icons.event_available_rounded, color: _primary),
                                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
                                 ),
                                 child: Text(
                                   DateFormat('dd/MM/yyyy').format(_fecha),
-                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 14),
+                          // Fecha de Fin
+                          Expanded(
+                            child: InkWell(
+                              onTap: _pickFechaFin,
+                              borderRadius: BorderRadius.circular(10),
+                              child: InputDecorator(
+                                decoration: InputDecoration(
+                                  labelText: 'Fecha de Fin (Cierre)',
+                                  prefixIcon: const Icon(Icons.event_busy_rounded, color: Color(0xFF00897B)),
+                                  suffixIcon: _fechaFin != null
+                                      ? IconButton(
+                                          icon: const Icon(Icons.clear_rounded, size: 18),
+                                          onPressed: () => setState(() => _fechaFin = null),
+                                          tooltip: 'Restablecer a mismo día',
+                                        )
+                                      : null,
+                                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                                ),
+                                child: Text(
+                                  _fechaFin != null
+                                      ? DateFormat('dd/MM/yyyy').format(_fechaFin!)
+                                      : 'Mismo día (${DateFormat('dd/MM/yyyy').format(_fecha)})',
+                                  style: TextStyle(
+                                    fontWeight: _fechaFin != null ? FontWeight.bold : FontWeight.normal,
+                                    fontSize: 13,
+                                    color: _fechaFin != null ? const Color(0xFF0F172A) : Colors.grey.shade600,
+                                  ),
                                 ),
                               ),
                             ),
@@ -477,6 +507,7 @@ class _CrearJornadaDialogState extends State<CrearJornadaDialog> {
                       else
                         DropdownButtonFormField<Map<String, dynamic>>(
                           value: _selectedResponsable,
+                          hint: const Text('Seleccionar responsable de la jornada...'),
                           isExpanded: true,
                           decoration: InputDecoration(
                             prefixIcon: const Icon(Icons.person_pin_rounded, color: _teal),
@@ -718,21 +749,24 @@ class _CrearJornadaDialogState extends State<CrearJornadaDialog> {
                                           flex: 4,
                                           child: DropdownButtonFormField<Map<String, dynamic>>(
                                             value: item.lote,
+                                            hint: const Text('Seleccionar Vacuna / Insumo...'),
+                                            validator: (v) => v == null ? 'Seleccione un lote' : null,
                                             isExpanded: true,
                                             decoration: const InputDecoration(
-                                              labelText: 'Vacuna / Insumo',
+                                              labelText: 'Vacuna / Insumo *',
                                               contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                                               border: OutlineInputBorder(),
                                             ),
                                             items: _lotesDisponibles.map((lote) {
                                               final art = lote['articulo'] ?? {};
-                                              final nomArt = art['nombre_articulo'] ?? lote['nombre_articulo'] ?? 'Vacuna';
+                                              final nomArt = art['nombre_articulo'] ?? lote['nombre_articulo'] ?? 'Insumo';
+                                              final tipo = art['tipo'] ?? lote['tipo'] ?? 'Insumo';
                                               final numLote = lote['numero_lote'] ?? '';
                                               final libre = ((lote['stock_actual'] ?? 0) as int) - ((lote['stock_reservado'] ?? 0) as int);
                                               return DropdownMenuItem(
                                                 value: lote,
                                                 child: Text(
-                                                  '$nomArt [Lote: $numLote] (Libre: $libre)',
+                                                  '[$tipo] $nomArt [Lote: $numLote] (Libre: $libre)',
                                                   style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
                                                   overflow: TextOverflow.ellipsis,
                                                 ),
@@ -915,8 +949,8 @@ class _CrearJornadaDialogState extends State<CrearJornadaDialog> {
     }
     setState(() {
       _itemsBloqueo.add(_ItemStockBloqueo(
-        lote: _lotesDisponibles.first,
-        cantidad: 10,
+        lote: null,
+        cantidad: 1,
       ));
     });
   }
@@ -929,7 +963,24 @@ class _CrearJornadaDialogState extends State<CrearJornadaDialog> {
       lastDate: DateTime.now().add(const Duration(days: 180)),
     );
     if (picked != null) {
-      setState(() => _fecha = picked);
+      setState(() {
+        _fecha = picked;
+        if (_fechaFin != null && _fechaFin!.isBefore(_fecha)) {
+          _fechaFin = _fecha;
+        }
+      });
+    }
+  }
+
+  Future<void> _pickFechaFin() async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _fechaFin ?? _fecha,
+      firstDate: _fecha,
+      lastDate: DateTime.now().add(const Duration(days: 365)),
+    );
+    if (picked != null) {
+      setState(() => _fechaFin = picked);
     }
   }
 }
