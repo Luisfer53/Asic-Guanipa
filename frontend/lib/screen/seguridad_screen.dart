@@ -104,7 +104,7 @@ class _SeguridadScreenState extends State<SeguridadScreen>
 
   int get _medicosYAsistenciales {
     return _users.where((u) {
-      final role = (u['role'] ?? u['rol'] ?? '').toString().toLowerCase();
+      final role = _normalizarRol((u['role'] ?? u['rol'] ?? '').toString()).toLowerCase();
       return role.contains('medico') || role.contains('inmunizador') || role.contains('enfermer');
     }).length;
   }
@@ -119,7 +119,7 @@ class _SeguridadScreenState extends State<SeguridadScreen>
     return _users.where((u) {
       final username = (u['username'] ?? u['nombre_usuario'] ?? '').toString().toLowerCase();
       final email = (u['email'] ?? u['correo'] ?? '').toString().toLowerCase();
-      final role = (u['role'] ?? u['rol'] ?? 'Basico').toString();
+      final role = _normalizarRol((u['role'] ?? u['rol'] ?? 'Basico').toString());
       final bool activo = u['activo'] != false && u['activo'] != 0;
 
       if (query.isNotEmpty && !username.contains(query) && !email.contains(query)) {
@@ -1030,33 +1030,54 @@ class _SeguridadScreenState extends State<SeguridadScreen>
   // HELPERS VISUALES
   // ───────────────────────────────────────────────────────────────────────────
 
+  /// Normaliza un nombre de rol eliminando tildes para comparar con rolesDisponibles
+  String _normalizarRol(String rol) {
+    return rol
+        .replaceAll('á', 'a').replaceAll('Á', 'A')
+        .replaceAll('é', 'e').replaceAll('É', 'E')
+        .replaceAll('í', 'i').replaceAll('Í', 'I')
+        .replaceAll('ó', 'o').replaceAll('Ó', 'O')
+        .replaceAll('ú', 'u').replaceAll('Ú', 'U');
+  }
+
   String _extraerRol(Map<String, dynamic>? user) {
     if (user == null) return 'Medico';
-    if (user['role'] != null) return user['role'].toString();
-    if (user['rol'] != null) return user['rol'].toString();
-    if (user['roles'] is List && (user['roles'] as List).isNotEmpty) {
-      return (user['roles'] as List).first.toString();
+    String raw = '';
+    if (user['role'] != null) {
+      raw = user['role'].toString();
+    } else if (user['rol'] != null) {
+      raw = user['rol'].toString();
+    } else if (user['roles'] is List && (user['roles'] as List).isNotEmpty) {
+      raw = (user['roles'] as List).first.toString();
     }
-    return 'Basico';
+    if (raw.isEmpty) return 'Basico';
+    // Normalizar para que coincida con rolesDisponibles (sin tildes)
+    return _normalizarRol(raw);
   }
 
   Color _getRolColor(String role) {
-    final r = role.toLowerCase();
+    final r = _normalizarRol(role).toLowerCase();
     if (r.contains('admin')) return _red;
     if (r.contains('medico')) return _primary;
     if (r.contains('inmunizador')) return _green;
     if (r.contains('inventario')) return _amber;
     if (r.contains('epidemiologo')) return _purple;
+    if (r.contains('enfermer')) return Colors.teal;
+    if (r.contains('basico')) return Colors.blueGrey;
     return Colors.grey;
   }
 
   String _getRolLabel(String role) {
-    final r = role.toLowerCase();
+    // Normalizar: quitar tildes y pasar a minúsculas
+    final r = _normalizarRol(role).toLowerCase();
     if (r.contains('admin')) return 'Administrador';
     if (r.contains('medico')) return 'Médico';
     if (r.contains('inmunizador')) return 'Inmunizador';
     if (r.contains('inventario')) return 'Inventario';
     if (r.contains('epidemiologo')) return 'Epidemiólogo';
+    if (r.contains('basico')) return 'Básico';
+    if (r.contains('enfermer')) return 'Enfermería';
+    if (r.contains('estadistic')) return 'Estadística';
     return 'Operador';
   }
 }
