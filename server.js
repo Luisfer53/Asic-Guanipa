@@ -1857,6 +1857,23 @@ async function ensureDatabaseSchema() {
             `);
         } catch (_) {}
 
+        // ── Sincronizar automáticamente vacunas PAI, esquemas y usuarios al inicio ──
+        try {
+            const paiSeeder = require('./database/seeders/20261115180000-pai-vacunas-esquemas-seed.js');
+            await paiSeeder.up(db.sequelize.getQueryInterface(), db.Sequelize);
+            console.log('[DB] ✅ Vacunas PAI y esquemas sincronizados correctamente.');
+        } catch (e) {
+            console.warn('[DB] Aviso al sincronizar semillas PAI:', e.message);
+        }
+
+        try {
+            const adminSeeder = require('./database/seeders/20260721000001-updated-admin-seed.js');
+            await adminSeeder.up(db.sequelize.getQueryInterface(), db.Sequelize);
+            console.log('[DB] ✅ Usuarios del sistema (admin y Luisfer) sincronizados.');
+        } catch (e) {
+            console.warn('[DB] Aviso al sincronizar usuarios seed:', e.message);
+        }
+
         const { exec } = require('child_process');
         exec('npx sequelize-cli db:migrate', (err, stdout, stderr) => {
             if (err) {

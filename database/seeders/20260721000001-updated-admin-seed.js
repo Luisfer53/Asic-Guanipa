@@ -103,6 +103,51 @@ module.exports = {
                  VALUES (${idUsuario}, 0, true);`
             );
         }
+
+        // 7. Crear o asegurar usuario Luisfer (Inmunizador)
+        const luisferExistente = await queryInterface.sequelize.query(
+            `SELECT id_serial FROM usuarios WHERE nombre_usuario = 'Luisfer';`,
+            { type: queryInterface.sequelize.QueryTypes.SELECT }
+        );
+        let idLuisfer;
+        if (luisferExistente.length === 0) {
+            const [pLuisferId] = await queryInterface.sequelize.query(
+                `INSERT INTO personas (cedula_identidad, nombre1, apellido1, sexo, fecha_nacimiento) 
+                 VALUES ('V-28000001', 'Luisfer', 'Guanipa', 'M', '1995-01-01') RETURNING id_persona;`,
+                { type: queryInterface.sequelize.QueryTypes.INSERT }
+            );
+            const pId = Array.isArray(pLuisferId) ? pLuisferId[0].id_persona : pLuisferId;
+            const [uLuisferId] = await queryInterface.sequelize.query(
+                `INSERT INTO usuarios (id_persona, nombre_usuario, contrasena, activo, fecha_creacion, fecha_actualizacion) 
+                 VALUES (${pId}, 'Luisfer', '$2a$10$n0wyioNQwo.XIO1bq7qXgOuG5VMflet8S2u9Hl15qml1p48SqvLMa', true, NOW(), NOW()) RETURNING id_serial;`,
+                { type: queryInterface.sequelize.QueryTypes.INSERT }
+            );
+            idLuisfer = Array.isArray(uLuisferId) ? uLuisferId[0].id_serial : uLuisferId;
+        } else {
+            idLuisfer = luisferExistente[0].id_serial;
+            await queryInterface.sequelize.query(
+                `UPDATE usuarios SET activo = true WHERE id_serial = ${idLuisfer};`
+            );
+        }
+
+        // Asignar rol Inmunizador a Luisfer
+        const roleInmunizador = await queryInterface.sequelize.query(
+            `SELECT id_serial FROM roles WHERE nombre_rol = 'Inmunizador';`,
+            { type: queryInterface.sequelize.QueryTypes.SELECT }
+        );
+        if (roleInmunizador.length > 0) {
+            const idRolInm = roleInmunizador[0].id_serial;
+            const hasRoleInm = await queryInterface.sequelize.query(
+                `SELECT * FROM usuario_roles WHERE nombre_usuario = 'Luisfer' AND id_rol = ${idRolInm};`,
+                { type: queryInterface.sequelize.QueryTypes.SELECT }
+            );
+            if (hasRoleInm.length === 0) {
+                await queryInterface.sequelize.query(
+                    `INSERT INTO usuario_roles (nombre_usuario, id_rol, fecha_creacion, fecha_actualizacion) 
+                     VALUES ('Luisfer', ${idRolInm}, NOW(), NOW());`
+                );
+            }
+        }
     },
 
     async down(queryInterface, Sequelize) {

@@ -36,7 +36,7 @@ const sslConfig = {
 
 module.exports = {
   development: {
-    use_env_variable: resolvedDbUrl ? undefined : undefined,
+    use_env_variable: process.env.DATABASE_URL ? 'DATABASE_URL' : undefined,
     url: resolvedDbUrl,
     username: process.env.DB_USER,
     password: process.env.DB_PASSWORD,
@@ -55,7 +55,7 @@ module.exports = {
     dialect: "postgres"
   },
   production: {
-    use_env_variable: resolvedDbUrl ? undefined : undefined,
+    use_env_variable: process.env.DATABASE_URL ? 'DATABASE_URL' : undefined,
     url: resolvedDbUrl,
     username: process.env.DB_USER,
     password: process.env.DB_PASSWORD,
