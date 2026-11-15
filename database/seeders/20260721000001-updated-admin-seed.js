@@ -38,8 +38,8 @@ module.exports = {
             );
         }
 
-        // 3. Crear o verificar roles iniciales
-        const roles = ['Admin', 'Médico', 'Enfermería', 'Estadística', 'Básico'];
+        // 3. Crear o verificar roles iniciales (todos los roles del sistema)
+        const roles = ['Admin', 'Médico', 'Enfermería', 'Estadística', 'Básico', 'Inmunizador', 'Inventario', 'Epidemiólogo'];
         for (const nombreRol of roles) {
             const r = await queryInterface.sequelize.query(
                 `SELECT id_serial FROM roles WHERE nombre_rol = '${nombreRol}';`,

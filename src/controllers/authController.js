@@ -550,13 +550,17 @@ const updateUser = async (req, res) => {
             return res.status(404).json({ success: false, message: 'Usuario no encontrado' });
         }
 
+        // Guardar username VIEJO antes de actualizar el modelo
+        const oldUsername = usuario.nombre_usuario;
+        const newUsername = username || oldUsername;
+
         let hashedPassword = usuario.contrasena;
         if (password) {
             hashedPassword = await bcrypt.hash(password, 10);
         }
 
         await usuario.update({
-            nombre_usuario: username || usuario.nombre_usuario,
+            nombre_usuario: newUsername,
             contrasena: hashedPassword,
             fecha_actualizacion: new Date()
         }, { transaction });
@@ -575,18 +579,26 @@ const updateUser = async (req, res) => {
             }
         }
 
+        // Actualizar rol si se proporcionó
+        let roleWarning = null;
         if (role) {
+            console.log(`[updateUser] Buscando rol: "${role}" para usuario ${oldUsername}`);
             const roleRecord = await findRoleByName(role, transaction);
             if (roleRecord) {
-                const newUsername = username || usuario.nombre_usuario;
+                console.log(`[updateUser] Rol encontrado: ${roleRecord.nombre_rol} (id=${roleRecord.id_serial})`);
+                // Usar oldUsername para el DELETE (antes de que el modelo se actualice)
                 await db.sequelize.query('DELETE FROM usuario_roles WHERE nombre_usuario = $1', {
-                    bind: [usuario.nombre_usuario],
+                    bind: [oldUsername],
                     transaction
                 });
                 await db.sequelize.query(
                     'INSERT INTO usuario_roles (nombre_usuario, id_rol, fecha_creacion, fecha_actualizacion) VALUES ($1, $2, NOW(), NOW())',
                     { bind: [newUsername, roleRecord.id_serial], transaction }
                 );
+                console.log(`[updateUser] Rol asignado exitosamente: ${newUsername} -> ${roleRecord.nombre_rol}`);
+            } else {
+                console.warn(`[updateUser] ADVERTENCIA: Rol "${role}" no encontrado en la BD`);
+                roleWarning = `El rol "${role}" no fue encontrado. Los demás datos sí fueron actualizados.`;
             }
         }
 
@@ -594,12 +606,16 @@ const updateUser = async (req, res) => {
 
         await logAction(
             req.user?.nombre_usuario || 'sistema',
-            `Actualización de usuario: ${usuario.nombre_usuario}`,
+            `Actualización de usuario: ${oldUsername}`,
             'usuarios',
             { id, username, email, role }
         );
 
-        res.status(200).json({ success: true, message: 'Usuario actualizado exitosamente' });
+        res.status(200).json({
+            success: true,
+            message: roleWarning || 'Usuario actualizado exitosamente',
+            warning: roleWarning || null
+        });
     } catch (error) {
         await transaction.rollback();
         console.error('Error al actualizar usuario:', error);
