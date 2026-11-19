@@ -78,6 +78,27 @@ module.exports = (sequelize, DataTypes) => {
             allowNull: true,
             defaultValue: 'intramural',
             comment: 'intramural | extramural — inyectado desde el contexto de guardia activa'
+        },
+        fuente_registro: {
+            type: DataTypes.STRING(20),
+            allowNull: true,
+            defaultValue: 'cdi',
+            comment: "cdi = aplicada en nuestro CDI | historico = carga manual del carnet"
+        },
+        establecimiento_origen: {
+            type: DataTypes.STRING(150),
+            allowNull: true,
+            comment: 'Establecimiento donde se aplicó (si fuente=historico)'
+        },
+        fecha_aplicacion: {
+            type: DataTypes.DATEONLY,
+            allowNull: true,
+            comment: 'Fecha real de aplicación (puede ser pasada)'
+        },
+        nombre_vacuna_libre: {
+            type: DataTypes.STRING(120),
+            allowNull: true,
+            comment: 'Nombre de vacuna en texto libre (sin lote ni catálogo PAI)'
         }
     }, {
         sequelize,

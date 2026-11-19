@@ -133,6 +133,12 @@ module.exports = (sequelize, DataTypes) => {
         observaciones: {
             type: DataTypes.TEXT,
             allowNull: true
+        },
+        fuente_registro: {
+            type: DataTypes.STRING(20),
+            allowNull: true,
+            defaultValue: 'cdi',
+            comment: "cdi = atención real en el CDI | historico = carga retrospectiva de carnet"
         }
     }, {
         sequelize,

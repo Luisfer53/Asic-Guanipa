@@ -3,6 +3,7 @@ import 'package:asis_guanipa_frontend/services/api_service.dart';
 import 'package:asis_guanipa_frontend/models/paciente.dart';
 import 'package:asis_guanipa_frontend/screen/nominal_register/carnet_vacunacion_dialog.dart';
 import 'package:asis_guanipa_frontend/screen/nominal_register/constancia_atencion_dialog.dart';
+import 'package:asis_guanipa_frontend/screen/nominal_register/cargar_carnet_historico_dialog.dart';
 
 class PatientHistoryScreen extends StatefulWidget {
   final String pacienteId;
@@ -123,6 +124,27 @@ class _PatientHistoryScreenState extends State<PatientHistoryScreen>
                         }
                       },
                     ),
+                    IconButton(
+                      icon: const Icon(Icons.history_edu, color: Colors.white),
+                      tooltip: 'Cargar Carnet Histórico (vacunas previas)',
+                      onPressed: () async {
+                        final pacienteData = _historial?['paciente'];
+                        if (pacienteData == null) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Cargando información del paciente...')),
+                          );
+                          return;
+                        }
+                        final idPaciente = pacienteData['id_paciente'] ?? pacienteData['id'];
+                        if (idPaciente == null) return;
+                        final cargado = await CargarCarnetHistoricoDialog.show(
+                          context,
+                          idPaciente: idPaciente is int ? idPaciente : int.tryParse(idPaciente.toString()) ?? 0,
+                          nombrePaciente: widget.nombrePaciente,
+                        );
+                        if (cargado == true) _loadHistorial();
+                      },
+                    ),
                   ],
                 );
               }
@@ -156,7 +178,7 @@ class _PatientHistoryScreenState extends State<PatientHistoryScreen>
                   ),
                   // Carnet Vacunación
                   Padding(
-                    padding: const EdgeInsets.only(right: 12),
+                    padding: const EdgeInsets.only(right: 8),
                     child: ElevatedButton.icon(
                       onPressed: () {
                         if (_historial != null && _historial!['paciente'] != null) {
@@ -172,6 +194,37 @@ class _PatientHistoryScreenState extends State<PatientHistoryScreen>
                       label: const Text('Carnet (QR)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFF00897B),
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      ),
+                    ),
+                  ),
+                  // Cargar Carnet Histórico
+                  Padding(
+                    padding: const EdgeInsets.only(right: 12),
+                    child: ElevatedButton.icon(
+                      onPressed: () async {
+                        final pacienteData = _historial?['paciente'];
+                        if (pacienteData == null) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Cargando información del paciente...')),
+                          );
+                          return;
+                        }
+                        final idPaciente = pacienteData['id_paciente'] ?? pacienteData['id'];
+                        if (idPaciente == null) return;
+                        final cargado = await CargarCarnetHistoricoDialog.show(
+                          context,
+                          idPaciente: idPaciente is int ? idPaciente : int.tryParse(idPaciente.toString()) ?? 0,
+                          nombrePaciente: widget.nombrePaciente,
+                        );
+                        if (cargado == true) _loadHistorial();
+                      },
+                      icon: const Icon(Icons.history_edu, size: 16),
+                      label: const Text('Cargar Histórico', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF5E35B1),
                         foregroundColor: Colors.white,
                         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),

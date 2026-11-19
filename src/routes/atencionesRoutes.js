@@ -27,4 +27,7 @@ router.post('/atenciones/sectores', [verifyToken, isMedicoOrAdmin], atencionesCo
 // Legacy
 router.post('/atenciones', [verifyToken, isMedicoOrAdmin], atencionesController.registrarAtencionLegacy);
 
+// Carga histórica de carnet de vacunación (vacunas aplicadas en otro establecimiento)
+router.post('/atenciones/cargar-carnet-historico', [verifyToken, isMedicoOrAdmin], atencionesController.cargarCarnetHistorico);
+
 module.exports = router;

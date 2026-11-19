@@ -709,3 +709,157 @@ exports.listarPersonalDisponible = async (req, res) => {
         res.status(500).json({ success: false, message: err.message });
     }
 };
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CARGA HISTÓRICA DE CARNET DE VACUNACIÓN
+// Registra vacunas aplicadas en OTRO establecimiento o con fecha anterior,
+// sin descontar stock del inventario. Fuente: 'historico'
+// ─────────────────────────────────────────────────────────────────────────────
+exports.cargarCarnetHistorico = async (req, res) => {
+    const t = await sequelize.transaction();
+    try {
+        const { id_paciente, vacunas } = req.body;
+
+        // Validaciones básicas
+        if (!id_paciente) {
+            await t.rollback();
+            return res.status(400).json({ success: false, message: 'Se requiere id_paciente' });
+        }
+        if (!vacunas || !Array.isArray(vacunas) || vacunas.length === 0) {
+            await t.rollback();
+            return res.status(400).json({ success: false, message: 'Se requiere al menos una vacuna en el array "vacunas"' });
+        }
+
+        // Verificar que el paciente existe
+        const pacienteRecord = await Paciente.findByPk(id_paciente, {
+            include: [{ model: db.Persona, as: 'persona' }],
+            transaction: t
+        });
+        if (!pacienteRecord) {
+            await t.rollback();
+            return res.status(404).json({ success: false, message: 'Paciente no encontrado' });
+        }
+
+        const registradas = [];
+        const errores = [];
+
+        for (const vac of vacunas) {
+            try {
+                // Cada vacuna puede venir con:
+                //  - nombre_vacuna: nombre del catálogo PAI (para buscar id_esquema)
+                //  - nombre_vacuna_libre: texto libre si no está en catálogo
+                //  - dosis_aplicada: "1ra Dosis", "2da Dosis", "Refuerzo", etc.
+                //  - fecha_aplicacion: YYYY-MM-DD (fecha en que fue aplicada)
+                //  - establecimiento_origen: "CDI Maturín", "Ambulatorio Rural Los Pinos"
+
+                const fechaAplicacion = vac.fecha_aplicacion || null;
+                const establecimiento = vac.establecimiento_origen || 'Establecimiento no especificado';
+                const dosisLabel = vac.dosis_aplicada || '1ra Dosis';
+
+                // Intentar encontrar el esquema PAI correspondiente
+                let idEsquema = vac.id_esquema || null;
+                if (!idEsquema && vac.nombre_vacuna) {
+                    // Buscar por nombre de vacuna en el catálogo
+                    const esquema = await db.sequelize.query(
+                        `SELECT e.id_esquema FROM esquemas_dosificacion e
+                         JOIN vacunas v ON e.id_vacuna = v.id_vacuna
+                         WHERE (LOWER(v.nombre_vacuna) LIKE LOWER($1) OR LOWER(v.nombre_comercial) LIKE LOWER($1))
+                           AND LOWER(e.etiqueta_dosis) = LOWER($2)
+                         LIMIT 1`,
+                        {
+                            bind: [`%${vac.nombre_vacuna}%`, dosisLabel],
+                            type: db.Sequelize.QueryTypes.SELECT,
+                            transaction: t
+                        }
+                    );
+                    if (esquema && esquema.length > 0) {
+                        idEsquema = esquema[0].id_esquema;
+                    }
+                }
+
+                // Crear atención histórica (una por vacuna, o agrupar por fecha)
+                // Usamos una sola atención por grupo de vacunas con la misma fecha+establecimiento
+                // Si la fecha es distinta, se crea una atención diferente
+                const fechaVisita = fechaAplicacion ? new Date(fechaAplicacion) : new Date();
+                const diagHistorico = `Registro histórico de vacunación — ${establecimiento}`;
+
+                // Buscar si ya existe una atención histórica para este paciente, fecha y establecimiento
+                let atencionHistorica = await AtencionDiaria.findOne({
+                    where: {
+                        id_paciente: id_paciente,
+                        tipo_atencion: 'inmunizacion',
+                        fuente_registro: 'historico',
+                        fecha_visita: fechaVisita,
+                        diagnostico_general: diagHistorico
+                    },
+                    transaction: t
+                });
+
+                if (!atencionHistorica) {
+                    atencionHistorica = await AtencionDiaria.create({
+                        id_paciente: id_paciente,
+                        fecha_visita: fechaVisita,
+                        semana_epidemiologica: semanaEpidemiologica(fechaVisita) || 1,
+                        tipo_atencion: 'inmunizacion',
+                        diagnostico_general: diagHistorico,
+                        fuente_registro: 'historico',
+                        id_usuario_registra: req.user?.id || 1
+                    }, { transaction: t });
+                }
+
+                // Registrar la vacuna histórica (SIN descontar stock)
+                const registro = await RegistroVacunacion.create({
+                    id_atencion: atencionHistorica.id_atencion,
+                    id_lote: vac.id_lote || null,          // null si no hay lote (externo)
+                    id_esquema: idEsquema,
+                    dosis_aplicada: dosisLabel,
+                    via_administracion: vac.via_administracion || null,
+                    sitio_administracion: vac.sitio_administracion || null,
+                    modalidad: 'historico',
+                    fuente_registro: 'historico',
+                    establecimiento_origen: establecimiento,
+                    fecha_aplicacion: fechaAplicacion,
+                    nombre_vacuna_libre: vac.nombre_vacuna_libre || vac.nombre_vacuna || null
+                }, { transaction: t });
+
+                registradas.push({
+                    id_vacunacion: registro.id_vacunacion,
+                    nombre_vacuna: vac.nombre_vacuna_libre || vac.nombre_vacuna || 'Sin nombre',
+                    dosis_aplicada: dosisLabel,
+                    fecha_aplicacion: fechaAplicacion,
+                    establecimiento_origen: establecimiento
+                });
+
+            } catch (vacError) {
+                console.error('[cargarCarnetHistorico] Error en vacuna individual:', vacError.message);
+                errores.push({
+                    vacuna: vac.nombre_vacuna_libre || vac.nombre_vacuna || 'Desconocida',
+                    error: vacError.message
+                });
+            }
+        }
+
+        await t.commit();
+
+        await logAction(
+            req.user?.nombre_usuario || 'sistema',
+            `Carga histórica de carnet: ${registradas.length} vacunas para Paciente ID ${id_paciente}`,
+            'registro_vacunacion',
+            { id_paciente, registradas: registradas.length, errores: errores.length }
+        );
+
+        res.status(201).json({
+            success: true,
+            message: `${registradas.length} vacuna(s) históricas registradas exitosamente`,
+            data: { registradas, errores }
+        });
+
+    } catch (error) {
+        await t.rollback();
+        console.error('[cargarCarnetHistorico] Error general:', error);
+        res.status(400).json({
+            success: false,
+            message: error.message || 'Error al cargar historial de vacunación',
+        });
+    }
+};

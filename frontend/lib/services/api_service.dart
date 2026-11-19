@@ -589,6 +589,42 @@ class ApiService {
   Future<Map<String, dynamic>> getHistorialPacienteById(String pacienteId) =>
       getHistorialPaciente(pacienteId);
 
+  // ── Carga histórica de carnet de vacunación ──────────────────────────────
+  /// Registra vacunas aplicadas en otro establecimiento o fecha anterior,
+  /// SIN descontar stock del inventario. Fuente: 'historico'.
+  ///
+  /// [idPaciente]: ID del paciente en el sistema
+  /// [vacunas]: lista de vacunas a registrar, cada una con:
+  ///   - nombre_vacuna (String): nombre del catálogo PAI
+  ///   - nombre_vacuna_libre (String, opcional): texto libre si no está en catálogo
+  ///   - dosis_aplicada (String): "1ra Dosis", "2da Dosis", "Refuerzo", etc.
+  ///   - fecha_aplicacion (String YYYY-MM-DD): fecha de aplicación
+  ///   - establecimiento_origen (String): nombre del establecimiento
+  Future<Map<String, dynamic>> cargarCarnetHistorico({
+    required int idPaciente,
+    required List<Map<String, dynamic>> vacunas,
+  }) async {
+    final token = await getToken();
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/atenciones/cargar-carnet-historico'),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+        body: json.encode({
+          'id_paciente': idPaciente,
+          'vacunas': vacunas,
+        }),
+      );
+      final body = json.decode(response.body);
+      if (body is Map<String, dynamic>) return body;
+      return {'success': false, 'message': 'Respuesta inesperada del servidor'};
+    } catch (e) {
+      return {'success': false, 'message': 'Error de conexión: $e'};
+    }
+  }
+
   // Eliminar artículo médico
   Future<Map<String, dynamic>> eliminarArticulo(int id) async {
     final token = await getToken();
